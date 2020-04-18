@@ -7,15 +7,34 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		D346B7572443C2A800905CD6 /* LucyRTL8125Linux-900304.cpp in Sources */ = {isa = PBXBuildFile; fileRef = D346B7562443C2A800905CD6 /* LucyRTL8125Linux-900304.cpp */; };
+		D346B75A2443D45400905CD6 /* LucyRTL8125Hardware.cpp in Sources */ = {isa = PBXBuildFile; fileRef = D346B7592443D45400905CD6 /* LucyRTL8125Hardware.cpp */; };
 		D38D865F2443ACB600D94935 /* LucyRTL8125Ethernet.hpp in Headers */ = {isa = PBXBuildFile; fileRef = D38D865E2443ACB600D94935 /* LucyRTL8125Ethernet.hpp */; };
 		D38D86612443ACB600D94935 /* LucyRTL8125Ethernet.cpp in Sources */ = {isa = PBXBuildFile; fileRef = D38D86602443ACB600D94935 /* LucyRTL8125Ethernet.cpp */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		D346B7562443C2A800905CD6 /* LucyRTL8125Linux-900304.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "LucyRTL8125Linux-900304.cpp"; sourceTree = "<group>"; };
+		D346B7582443CE0A00905CD6 /* r8125_dash.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = r8125_dash.h; sourceTree = "<group>"; };
+		D346B7592443D45400905CD6 /* LucyRTL8125Hardware.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = LucyRTL8125Hardware.cpp; sourceTree = "<group>"; };
 		D38D865B2443ACB600D94935 /* LucyRTL8125Ethernet.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = LucyRTL8125Ethernet.kext; sourceTree = BUILT_PRODUCTS_DIR; };
 		D38D865E2443ACB600D94935 /* LucyRTL8125Ethernet.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = LucyRTL8125Ethernet.hpp; sourceTree = "<group>"; };
 		D38D86602443ACB600D94935 /* LucyRTL8125Ethernet.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = LucyRTL8125Ethernet.cpp; sourceTree = "<group>"; };
 		D38D86622443ACB600D94935 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		D38D86682443AF9100D94935 /* LucyRTL8125Ethernet-Prefix.pch */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "LucyRTL8125Ethernet-Prefix.pch"; sourceTree = "<group>"; };
+		D38D866A2443B0D300D94935 /* IOEthernetController.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = IOEthernetController.h; sourceTree = "<group>"; };
+		D38D866B2443B0D400D94935 /* IONetworkInterface.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = IONetworkInterface.h; sourceTree = "<group>"; };
+		D38D866C2443B0D400D94935 /* kpi_interface.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = kpi_interface.h; sourceTree = "<group>"; };
+		D38D866D2443B0D400D94935 /* IOEthernetInterface.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = IOEthernetInterface.h; sourceTree = "<group>"; };
+		D38D866E2443B0D400D94935 /* IONetworkController.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = IONetworkController.h; sourceTree = "<group>"; };
+		D38D866F2443B0D400D94935 /* kpi_mbuf.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = kpi_mbuf.h; sourceTree = "<group>"; };
+		D38D86702443B66200D94935 /* ethertool.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ethertool.h; sourceTree = "<group>"; };
+		D38D86712443B66300D94935 /* linux.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = linux.h; sourceTree = "<group>"; };
+		D38D86722443B66300D94935 /* mii.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = mii.h; sourceTree = "<group>"; };
+		D38D86732443B66300D94935 /* APPLE_LICENSE */ = {isa = PBXFileReference; lastKnownFileType = text; path = APPLE_LICENSE; sourceTree = "<group>"; };
+		D38D86742443B66300D94935 /* gpl.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = gpl.txt; sourceTree = "<group>"; };
+		D38D86752443B66300D94935 /* if_ether.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = if_ether.h; sourceTree = "<group>"; };
+		D38D86762443B6DF00D94935 /* LucyRTL8125Linux-900304.hpp */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.h; path = "LucyRTL8125Linux-900304.hpp"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -48,11 +67,36 @@
 		D38D865D2443ACB600D94935 /* LucyRTL8125Ethernet */ = {
 			isa = PBXGroup;
 			children = (
+				D38D86692443B0B000D94935 /* Apple Headers */,
 				D38D865E2443ACB600D94935 /* LucyRTL8125Ethernet.hpp */,
 				D38D86602443ACB600D94935 /* LucyRTL8125Ethernet.cpp */,
+				D346B7592443D45400905CD6 /* LucyRTL8125Hardware.cpp */,
+				D38D86762443B6DF00D94935 /* LucyRTL8125Linux-900304.hpp */,
+				D346B7562443C2A800905CD6 /* LucyRTL8125Linux-900304.cpp */,
+				D346B7582443CE0A00905CD6 /* r8125_dash.h */,
+				D38D86702443B66200D94935 /* ethertool.h */,
+				D38D86752443B66300D94935 /* if_ether.h */,
+				D38D86712443B66300D94935 /* linux.h */,
+				D38D86722443B66300D94935 /* mii.h */,
+				D38D86682443AF9100D94935 /* LucyRTL8125Ethernet-Prefix.pch */,
+				D38D86732443B66300D94935 /* APPLE_LICENSE */,
+				D38D86742443B66300D94935 /* gpl.txt */,
 				D38D86622443ACB600D94935 /* Info.plist */,
 			);
 			path = LucyRTL8125Ethernet;
+			sourceTree = "<group>";
+		};
+		D38D86692443B0B000D94935 /* Apple Headers */ = {
+			isa = PBXGroup;
+			children = (
+				D38D866A2443B0D300D94935 /* IOEthernetController.h */,
+				D38D866D2443B0D400D94935 /* IOEthernetInterface.h */,
+				D38D866E2443B0D400D94935 /* IONetworkController.h */,
+				D38D866B2443B0D400D94935 /* IONetworkInterface.h */,
+				D38D866C2443B0D400D94935 /* kpi_interface.h */,
+				D38D866F2443B0D400D94935 /* kpi_mbuf.h */,
+			);
+			path = "Apple Headers";
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -134,7 +178,9 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				D346B7572443C2A800905CD6 /* LucyRTL8125Linux-900304.cpp in Sources */,
 				D38D86612443ACB600D94935 /* LucyRTL8125Ethernet.cpp in Sources */,
+				D346B75A2443D45400905CD6 /* LucyRTL8125Hardware.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -146,8 +192,8 @@
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_ANALYZER_NONNULL = YES;
-				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
-				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES;
+				CLANG_CXX_LANGUAGE_STANDARD = "c++0x";
 				CLANG_CXX_LIBRARY = "libc++";
 				CLANG_ENABLE_MODULES = YES;
 				CLANG_ENABLE_OBJC_ARC = YES;
@@ -158,7 +204,7 @@
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
 				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = NO;
 				CLANG_WARN_EMPTY_BODY = YES;
 				CLANG_WARN_ENUM_CONVERSION = YES;
 				CLANG_WARN_INFINITE_RECURSION = YES;
@@ -177,8 +223,11 @@
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
-				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_C_LANGUAGE_STANDARD = gnu99;
 				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_CPP_EXCEPTIONS = NO;
+				GCC_ENABLE_CPP_RTTI = NO;
+				GCC_ENABLE_KERNEL_DEVELOPMENT = YES;
 				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_PREPROCESSOR_DEFINITIONS = (
@@ -187,11 +236,12 @@
 				);
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_HIDDEN_VIRTUAL_FUNCTIONS = NO;
 				GCC_WARN_UNDECLARED_SELECTOR = YES;
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				MACOSX_DEPLOYMENT_TARGET = 10.15;
+				MACOSX_DEPLOYMENT_TARGET = 10.14;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
@@ -204,8 +254,8 @@
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_ANALYZER_NONNULL = YES;
-				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
-				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES;
+				CLANG_CXX_LANGUAGE_STANDARD = "c++0x";
 				CLANG_CXX_LIBRARY = "libc++";
 				CLANG_ENABLE_MODULES = YES;
 				CLANG_ENABLE_OBJC_ARC = YES;
@@ -216,7 +266,7 @@
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
 				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = NO;
 				CLANG_WARN_EMPTY_BODY = YES;
 				CLANG_WARN_ENUM_CONVERSION = YES;
 				CLANG_WARN_INFINITE_RECURSION = YES;
@@ -235,15 +285,19 @@
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
-				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_ENABLE_CPP_EXCEPTIONS = NO;
+				GCC_ENABLE_CPP_RTTI = NO;
+				GCC_ENABLE_KERNEL_DEVELOPMENT = YES;
 				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_HIDDEN_VIRTUAL_FUNCTIONS = NO;
 				GCC_WARN_UNDECLARED_SELECTOR = YES;
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				MACOSX_DEPLOYMENT_TARGET = 10.15;
+				MACOSX_DEPLOYMENT_TARGET = 10.14;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				SDKROOT = macosx;
@@ -255,9 +309,11 @@
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 1.0.0d1;
+				CURRENT_PROJECT_VERSION = $MODULE_VERSION;
 				DEVELOPMENT_TEAM = 4HX6T9FK2A;
+				GCC_PREFIX_HEADER = "LucyRTL8125Ethernet/LucyRTL8125Ethernet-Prefix.pch";
 				INFOPLIST_FILE = LucyRTL8125Ethernet/Info.plist;
+				MARKETING_VERSION = $MODULE_VERSION;
 				MODULE_NAME = com.insanelymac.LucyRTL8125Ethernet;
 				MODULE_VERSION = 1.0.0d1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.insanelymac.LucyRTL8125Ethernet;
@@ -271,9 +327,11 @@
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 1.0.0d1;
+				CURRENT_PROJECT_VERSION = $MODULE_VERSION;
 				DEVELOPMENT_TEAM = 4HX6T9FK2A;
+				GCC_PREFIX_HEADER = "LucyRTL8125Ethernet/LucyRTL8125Ethernet-Prefix.pch";
 				INFOPLIST_FILE = LucyRTL8125Ethernet/Info.plist;
+				MARKETING_VERSION = $MODULE_VERSION;
 				MODULE_NAME = com.insanelymac.LucyRTL8125Ethernet;
 				MODULE_VERSION = 1.0.0d1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.insanelymac.LucyRTL8125Ethernet;

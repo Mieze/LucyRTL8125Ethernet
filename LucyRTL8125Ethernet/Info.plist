@@ -19,10 +19,62 @@
 	<key>CFBundleVersion</key>
 	<string>1</string>
 	<key>IOKitPersonalities</key>
-	<dict/>
+	<dict>
+		<key>RTL8125 PCIe Adapter</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.insanelymac.${PRODUCT_NAME:rfc1034identifier}</string>
+			<key>Driver Parameters</key>
+			<dict>
+				<key>disableASPM</key>
+				<true/>
+				<key>enableCSO6</key>
+				<true/>
+				<key>enableEEE</key>
+				<true/>
+				<key>enableTSO4</key>
+				<false/>
+				<key>enableTSO6</key>
+				<false/>
+				<key>fallbackMAC</key>
+				<string></string>
+				<key>intrMitigate</key>
+				<integer>53080</integer>
+			</dict>
+			<key>Driver_Version</key>
+			<string>$MODULE_VERSION</string>
+			<key>IOClass</key>
+			<string>RTL8125</string>
+			<key>IOPCIMatch</key>
+			<string>0x812510ec 0x81251186 0x300010ec 0x300010ec</string>
+			<key>IOProbeScore</key>
+			<integer>1000</integer>
+			<key>IOProviderClass</key>
+			<string>IOPCIDevice</string>
+			<key>Model</key>
+			<string>RTL8125</string>
+			<key>Vendor</key>
+			<string>Realtek</string>
+		</dict>
+	</dict>
 	<key>NSHumanReadableCopyright</key>
 	<string>Copyright © 2020 Laura Müller. All rights reserved.</string>
 	<key>OSBundleLibraries</key>
-	<dict/>
+	<dict>
+		<key>com.apple.iokit.IONetworkingFamily</key>
+		<string>1.5.0</string>
+		<key>com.apple.iokit.IOPCIFamily</key>
+		<string>1.7</string>
+		<key>com.apple.kpi.bsd</key>
+		<string>8.10.0</string>
+		<key>com.apple.kpi.iokit</key>
+		<string>8.10.0</string>
+		<key>com.apple.kpi.libkern</key>
+		<string>8.10.0</string>
+		<key>com.apple.kpi.mach</key>
+		<string>8.10.0</string>
+	</dict>
+	<key>OSBundleRequired</key>
+	<string>Network-Root</string>
 </dict>
 </plist>

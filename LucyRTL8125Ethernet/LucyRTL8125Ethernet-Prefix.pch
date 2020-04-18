@@ -1,0 +1,66 @@
+//
+//  LucyRTL8125Ethernet-Prefix.pch
+//  LucyRTL8125Ethernet
+//
+//  Created by Laura Müller on 12.04.20.
+//  Copyright © 2020 Laura Müller. All rights reserved.
+//
+
+#ifndef LucyRTL8125Ethernet_Prefix_pch
+#define LucyRTL8125Ethernet_Prefix_pch
+
+// Include any system framework and library headers here that should be included in all compilation units.
+// You will also need to set the Prefix Header build setting of one or more of your targets to reference this file.
+
+#define __PRIVATE_SPI__
+
+#ifdef __cplusplus
+extern "C" {
+#endif // __cplusplus
+    
+#include "kpi_mbuf.h"
+#include "kpi_interface.h"
+
+#include <libkern/libkern.h>
+#include <libkern/OSAtomic.h>
+#include <machine/limits.h>
+#include <net/ethernet.h>
+#include <sys/socket.h>
+#include <net/if.h>
+#include <net/if_var.h>
+#include <netinet/in.h>
+#include <netinet/ip.h>
+#include <netinet/ip6.h>
+#include <netinet/tcp.h>
+#include <netinet/udp.h>
+#include <sys/appleapiopts.h>
+#include <sys/errno.h>
+    
+#ifdef __cplusplus
+}
+#endif // __cplusplus
+
+#ifdef __cplusplus
+
+typedef u_int32_t ifnet_ctl_cmd_t;
+
+#include "IONetworkInterface.h"
+#include "IONetworkController.h"
+#include "IOEthernetController.h"
+#include "IOEthernetInterface.h"
+
+#include <IOKit/network/IOMbufMemoryCursor.h>
+#include <IOKit/IOBufferMemoryDescriptor.h>
+#include <IOKit/IOCommandGate.h>
+#include <IOKit/IOFilterInterruptEventSource.h>
+#include <IOKit/IOLib.h>
+#include <IOKit/IOLocks.h>
+#include <IOKit/IOTimerEventSource.h>
+#include <IOKit/IOTypes.h>
+#include <IOKit/network/IOBasicOutputQueue.h>
+#include <IOKit/pci/IOPCIDevice.h>
+
+#endif // __cplusplus
+
+
+#endif /* LucyRTL8125Ethernet_Prefix_pch */
