@@ -15,9 +15,9 @@
 	<key>CFBundlePackageType</key>
 	<string>$(PRODUCT_BUNDLE_PACKAGE_TYPE)</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.0</string>
+	<string>$MODULE_VERSION</string>
 	<key>CFBundleVersion</key>
-	<string>1</string>
+	<string>$MODULE_VERSION</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>RTL8125 PCIe Adapter</key>

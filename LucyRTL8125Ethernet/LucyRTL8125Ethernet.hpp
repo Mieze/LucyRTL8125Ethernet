@@ -173,6 +173,7 @@ enum
     kIOPCIELinkCtlASPM = 0x0003,    /* ASPM Control */
     kIOPCIELinkCtlL0s = 0x0001,     /* L0s Enable */
     kIOPCIELinkCtlL1 = 0x0002,      /* L1 Enable */
+    kIOPCIELinkCtlClkPM = 0x0004,   /* Clock PM Enable */
     kIOPCIELinkCtlCcc = 0x0040,     /* Common Clock Configuration */
     kIOPCIELinkCtlClkReqEn = 0x100, /* Enable clkreq */
 };
