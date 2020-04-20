@@ -28,11 +28,11 @@ static inline u32 ether_crc(int length, unsigned char *data);
 
 #pragma mark --- public methods ---
 
-OSDefineMetaClassAndStructors(RTL8125, super)
+OSDefineMetaClassAndStructors(LucyRTL8125, super)
 
 /* IOService (or its superclass) methods. */
 
-bool RTL8125::init(OSDictionary *properties)
+bool LucyRTL8125::init(OSDictionary *properties)
 {
     bool result;
     
@@ -98,11 +98,11 @@ done:
     return result;
 }
 
-void RTL8125::free()
+void LucyRTL8125::free()
 {
     UInt32 i;
     
-    DebugLog("RTL8125: free() ===>\n");
+    DebugLog("free() ===>\n");
     
     if (workLoop) {
         if (interruptSource) {
@@ -130,7 +130,7 @@ void RTL8125::free()
     RELEASE(pciDevice);
     freeDMADescriptors();
     
-    DebugLog("RTL8125: free() <===\n");
+    DebugLog("free() <===\n");
     
     super::free();
 }
@@ -138,14 +138,14 @@ void RTL8125::free()
 static const char *onName = "enabled";
 static const char *offName = "disabled";
 
-bool RTL8125::start(IOService *provider)
+bool LucyRTL8125::start(IOService *provider)
 {
     bool result;
     
     result = super::start(provider);
     
     if (!result) {
-        IOLog("RTL8125: IOEthernetController::start failed.\n");
+        IOLog("IOEthernetController::start failed.\n");
         goto done;
     }
     multicastMode = false;
@@ -155,13 +155,13 @@ bool RTL8125::start(IOService *provider)
     pciDevice = OSDynamicCast(IOPCIDevice, provider);
     
     if (!pciDevice) {
-        IOLog("RTL8125: No provider.\n");
+        IOLog("No provider.\n");
         goto done;
     }
     pciDevice->retain();
     
     if (!pciDevice->open(this)) {
-        IOLog("RTL8125: Failed to open provider.\n");
+        IOLog("Failed to open provider.\n");
         goto error1;
     }
     getParams();
@@ -175,31 +175,31 @@ bool RTL8125::start(IOService *provider)
     }
     
     if (!setupMediumDict()) {
-        IOLog("RTL8125: Failed to setup medium dictionary.\n");
+        IOLog("Failed to setup medium dictionary.\n");
         goto error2;
     }
     commandGate = getCommandGate();
     
     if (!commandGate) {
-        IOLog("RTL8125: getCommandGate() failed.\n");
+        IOLog("getCommandGate() failed.\n");
         goto error2;
     }
     commandGate->retain();
     
     if (!setupDMADescriptors()) {
-        IOLog("RTL8125: Error allocating DMA descriptors.\n");
+        IOLog("Error allocating DMA descriptors.\n");
         goto error3;
     }
 
     if (!initEventSources(provider)) {
-        IOLog("RTL8125: initEventSources() failed.\n");
+        IOLog("initEventSources() failed.\n");
         goto error4;
     }
     
     result = attachInterface(reinterpret_cast<IONetworkInterface**>(&netif));
 
     if (!result) {
-        IOLog("RTL8125: attachInterface() failed.\n");
+        IOLog("attachInterface() failed.\n");
         goto error4;
     }
     pciDevice->close(this);
@@ -223,7 +223,7 @@ error1:
     goto done;
 }
 
-void RTL8125::stop(IOService *provider)
+void LucyRTL8125::stop(IOService *provider)
 {
     UInt32 i;
     
@@ -267,28 +267,28 @@ static IOPMPowerState powerStateArray[kPowerStateCount] =
     {1, kIOPMDeviceUsable, kIOPMPowerOn, kIOPMPowerOn, 0, 0, 0, 0, 0, 0, 0, 0}
 };
 
-IOReturn RTL8125::registerWithPolicyMaker(IOService *policyMaker)
+IOReturn LucyRTL8125::registerWithPolicyMaker(IOService *policyMaker)
 {
-    DebugLog("RTL8125: registerWithPolicyMaker() ===>\n");
+    DebugLog("registerWithPolicyMaker() ===>\n");
     
     powerState = kPowerStateOn;
     
-    DebugLog("RTL8125: registerWithPolicyMaker() <===\n");
+    DebugLog("registerWithPolicyMaker() <===\n");
 
     return policyMaker->registerPowerDriver(this, powerStateArray, kPowerStateCount);
 }
 
-IOReturn RTL8125::setPowerState(unsigned long powerStateOrdinal, IOService *policyMaker)
+IOReturn LucyRTL8125::setPowerState(unsigned long powerStateOrdinal, IOService *policyMaker)
 {
     IOReturn result = IOPMAckImplied;
     
-    DebugLog("RTL8125: setPowerState() ===>\n");
+    DebugLog("setPowerState() ===>\n");
         
     if (powerStateOrdinal == powerState) {
-        DebugLog("RTL8125: Already in power state %lu.\n", powerStateOrdinal);
+        DebugLog("Already in power state %lu.\n", powerStateOrdinal);
         goto done;
     }
-    DebugLog("RTL8125: switching to power state %lu.\n", powerStateOrdinal);
+    DebugLog("switching to power state %lu.\n", powerStateOrdinal);
     
     if (powerStateOrdinal == kPowerStateOff)
         commandGate->runAction(setPowerStateSleepAction);
@@ -298,14 +298,14 @@ IOReturn RTL8125::setPowerState(unsigned long powerStateOrdinal, IOService *poli
     powerState = powerStateOrdinal;
     
 done:
-    DebugLog("RTL8125: setPowerState() <===\n");
+    DebugLog("setPowerState() <===\n");
 
     return result;
 }
 
-void RTL8125::systemWillShutdown(IOOptionBits specifier)
+void LucyRTL8125::systemWillShutdown(IOOptionBits specifier)
 {
-    DebugLog("RTL8125: systemWillShutdown() ===>\n");
+    DebugLog("systemWillShutdown() ===>\n");
     
     if ((kIOMessageSystemWillPowerOff | kIOMessageSystemWillRestart) & specifier) {
         disable(netif);
@@ -314,27 +314,27 @@ void RTL8125::systemWillShutdown(IOOptionBits specifier)
         rtl8125_rar_set(&linuxData, (UInt8 *)&origMacAddr.bytes);
     }
     
-    DebugLog("RTL8125: systemWillShutdown() <===\n");
+    DebugLog("systemWillShutdown() <===\n");
 
     /* Must call super shutdown or system will stall. */
     super::systemWillShutdown(specifier);
 }
 
 /* IONetworkController methods. */
-IOReturn RTL8125::enable(IONetworkInterface *netif)
+IOReturn LucyRTL8125::enable(IONetworkInterface *netif)
 {
     const IONetworkMedium *selectedMedium;
     IOReturn result = kIOReturnError;
     
-    DebugLog("RTL8125: enable() ===>\n");
+    DebugLog("enable() ===>\n");
 
     if (isEnabled) {
-        DebugLog("RTL8125: Interface already enabled.\n");
+        DebugLog("Interface already enabled.\n");
         result = kIOReturnSuccess;
         goto done;
     }
     if (!pciDevice || pciDevice->isOpen()) {
-        IOLog("RTL8125: Unable to open PCI device.\n");
+        IOLog("Unable to open PCI device.\n");
         goto done;
     }
     pciDevice->open(this);
@@ -342,7 +342,7 @@ IOReturn RTL8125::enable(IONetworkInterface *netif)
     selectedMedium = getSelectedMedium();
     
     if (!selectedMedium) {
-        DebugLog("RTL8125: No medium selected. Falling back to autonegotiation.\n");
+        DebugLog("No medium selected. Falling back to autonegotiation.\n");
         selectedMedium = mediumTable[MEDIUM_INDEX_AUTO];
     }
     selectMedium(selectedMedium);
@@ -361,17 +361,17 @@ IOReturn RTL8125::enable(IONetworkInterface *netif)
     
     result = kIOReturnSuccess;
     
-    DebugLog("RTL8125: enable() <===\n");
+    DebugLog("enable() <===\n");
 
 done:
     return result;
 }
 
-IOReturn RTL8125::disable(IONetworkInterface *netif)
+IOReturn LucyRTL8125::disable(IONetworkInterface *netif)
 {
     IOReturn result = kIOReturnSuccess;
     
-    DebugLog("RTL8125: disable() ===>\n");
+    DebugLog("disable() ===>\n");
     
     if (!isEnabled)
         goto done;
@@ -396,13 +396,13 @@ IOReturn RTL8125::disable(IONetworkInterface *netif)
     if (pciDevice && pciDevice->isOpen())
         pciDevice->close(this);
         
-    DebugLog("RTL8125: disable() <===\n");
+    DebugLog("disable() <===\n");
     
 done:
     return result;
 }
 
-IOReturn RTL8125::outputStart(IONetworkInterface *interface, IOOptionBits options )
+IOReturn LucyRTL8125::outputStart(IONetworkInterface *interface, IOOptionBits options )
 {
     IOPhysicalSegment txSegments[kMaxSegs];
     mbuf_t m;
@@ -420,10 +420,10 @@ IOReturn RTL8125::outputStart(IONetworkInterface *interface, IOOptionBits option
     UInt32 index;
     UInt32 i;
     
-    //DebugLog("RTL8125: outputStart() ===>\n");
+    //DebugLog("outputStart() ===>\n");
     
     if (!(isEnabled && linkUp)) {
-        DebugLog("RTL8125: Interface down. Dropping packets.\n");
+        DebugLog("Interface down. Dropping packets.\n");
         goto done;
     }
     while ((txNumFreeDesc > (kMaxSegs + 3)) && (interface->dequeueOutputPackets(1, &m, NULL, NULL, NULL) == kIOReturnSuccess)) {
@@ -431,7 +431,7 @@ IOReturn RTL8125::outputStart(IONetworkInterface *interface, IOOptionBits option
         opts2 = 0;
 
         if (mbuf_get_tso_requested(m, &tsoFlags, &mssValue)) {
-            DebugLog("RTL8125: mbuf_get_tso_requested() failed. Dropping packet.\n");
+            DebugLog("mbuf_get_tso_requested() failed. Dropping packet.\n");
             freePacket(m);
             continue;
         }
@@ -456,7 +456,7 @@ IOReturn RTL8125::outputStart(IONetworkInterface *interface, IOOptionBits option
          * unused.
          */
         if (!numSegs) {
-            DebugLog("RTL8125: getPhysicalSegmentsWithCoalesce() failed. Dropping packet.\n");
+            DebugLog("getPhysicalSegmentsWithCoalesce() failed. Dropping packet.\n");
             freePacket(m);
             continue;
         }
@@ -489,7 +489,7 @@ IOReturn RTL8125::outputStart(IONetworkInterface *interface, IOOptionBits option
             desc->opts2 = OSSwapHostToLittleInt32(opts2);
             desc->opts1 = OSSwapHostToLittleInt32(opts1);
             
-            //DebugLog("RTL8125: opts1=0x%x, opts2=0x%x, addr=0x%llx, len=0x%llx\n", opts1, opts2, txSegments[i].location, txSegments[i].length);
+            //DebugLog("opts1=0x%x, opts2=0x%x, addr=0x%llx, len=0x%llx\n", opts1, opts2, txSegments[i].location, txSegments[i].length);
             ++index &= kTxDescMask;
         }
         firstDesc->opts1 |= DescOwn;
@@ -501,55 +501,55 @@ IOReturn RTL8125::outputStart(IONetworkInterface *interface, IOOptionBits option
     result = (txNumFreeDesc > (kMaxSegs + 3)) ? kIOReturnSuccess : kIOReturnNoResources;
     
 done:
-    //DebugLog("RTL8125: outputStart() <===\n");
+    //DebugLog("outputStart() <===\n");
     
     return result;
 }
 
-void RTL8125::getPacketBufferConstraints(IOPacketBufferConstraints *constraints) const
+void LucyRTL8125::getPacketBufferConstraints(IOPacketBufferConstraints *constraints) const
 {
-    DebugLog("RTL8125: getPacketBufferConstraints() ===>\n");
+    DebugLog("getPacketBufferConstraints() ===>\n");
 
     constraints->alignStart = kIOPacketBufferAlign1;
     constraints->alignLength = kIOPacketBufferAlign1;
     
-    DebugLog("RTL8125: getPacketBufferConstraints() <===\n");
+    DebugLog("getPacketBufferConstraints() <===\n");
 }
 
-IOOutputQueue* RTL8125::createOutputQueue()
+IOOutputQueue* LucyRTL8125::createOutputQueue()
 {
-    DebugLog("RTL8125: createOutputQueue() ===>\n");
+    DebugLog("createOutputQueue() ===>\n");
     
-    DebugLog("RTL8125: createOutputQueue() <===\n");
+    DebugLog("createOutputQueue() <===\n");
 
     return IOBasicOutputQueue::withTarget(this);
 }
 
-const OSString* RTL8125::newVendorString() const
+const OSString* LucyRTL8125::newVendorString() const
 {
-    DebugLog("RTL8125: newVendorString() ===>\n");
+    DebugLog("newVendorString() ===>\n");
     
-    DebugLog("RTL8125: newVendorString() <===\n");
+    DebugLog("newVendorString() <===\n");
 
     return OSString::withCString("Realtek");
 }
 
-const OSString* RTL8125::newModelString() const
+const OSString* LucyRTL8125::newModelString() const
 {
-    DebugLog("RTL8125: newModelString() ===>\n");
-    DebugLog("RTL8125: newModelString() <===\n");
+    DebugLog("newModelString() ===>\n");
+    DebugLog("newModelString() <===\n");
     
     return OSString::withCString(rtl_chip_info[linuxData.chipset].name);
 }
 
-bool RTL8125::configureInterface(IONetworkInterface *interface)
+bool LucyRTL8125::configureInterface(IONetworkInterface *interface)
 {
     char modelName[kNameLenght];
     IONetworkData *data;
     IOReturn error;
     bool result;
 
-    DebugLog("RTL8125: configureInterface() ===>\n");
+    DebugLog("configureInterface() ===>\n");
 
     result = super::configureInterface(interface);
     
@@ -563,7 +563,7 @@ bool RTL8125::configureInterface(IONetworkInterface *interface)
         netStats = (IONetworkStats *)data->getBuffer();
         
         if (!netStats) {
-            IOLog("RTL8125: Error getting IONetworkStats\n.");
+            IOLog("Error getting IONetworkStats\n.");
             result = false;
             goto done;
         }
@@ -575,7 +575,7 @@ bool RTL8125::configureInterface(IONetworkInterface *interface)
         etherStats = (IOEthernetStats *)data->getBuffer();
         
         if (!etherStats) {
-            IOLog("RTL8125: Error getting IOEthernetStats\n.");
+            IOLog("Error getting IOEthernetStats\n.");
             result = false;
             goto done;
         }
@@ -583,77 +583,77 @@ bool RTL8125::configureInterface(IONetworkInterface *interface)
     error = interface->configureOutputPullModel(512, 0, 0, IONetworkInterface::kOutputPacketSchedulingModelNormal);
     
     if (error != kIOReturnSuccess) {
-        IOLog("RTL8125: configureOutputPullModel() failed\n.");
+        IOLog("configureOutputPullModel() failed\n.");
         result = false;
         goto done;
     }
     error = interface->configureInputPacketPolling(kNumRxDesc, kIONetworkWorkLoopSynchronous);
     
     if (error != kIOReturnSuccess) {
-        IOLog("RTL8125: configureInputPacketPolling() failed\n.");
+        IOLog("configureInputPacketPolling() failed\n.");
         result = false;
         goto done;
     }
     snprintf(modelName, kNameLenght, "Realtek %s PCI Express 2.5 Gigabit Ethernet", rtl_chip_info[linuxData.chipset].name);
     setProperty("model", modelName);
     
-    DebugLog("RTL8125: configureInterface() <===\n");
+    DebugLog("configureInterface() <===\n");
 
 done:
     return result;
 }
 
-bool RTL8125::createWorkLoop()
+bool LucyRTL8125::createWorkLoop()
 {
-    DebugLog("RTL8125: createWorkLoop() ===>\n");
+    DebugLog("createWorkLoop() ===>\n");
     
     workLoop = IOWorkLoop::workLoop();
     
-    DebugLog("RTL8125: createWorkLoop() <===\n");
+    DebugLog("createWorkLoop() <===\n");
 
     return workLoop ? true : false;
 }
 
-IOWorkLoop* RTL8125::getWorkLoop() const
+IOWorkLoop* LucyRTL8125::getWorkLoop() const
 {
-    DebugLog("RTL8125: getWorkLoop() ===>\n");
+    DebugLog("getWorkLoop() ===>\n");
     
-    DebugLog("RTL8125: getWorkLoop() <===\n");
+    DebugLog("getWorkLoop() <===\n");
 
     return workLoop;
 }
 
 /* Methods inherited from IOEthernetController. */
-IOReturn RTL8125::getHardwareAddress(IOEthernetAddress *addr)
+IOReturn LucyRTL8125::getHardwareAddress(IOEthernetAddress *addr)
 {
     IOReturn result = kIOReturnError;
     
-    DebugLog("RTL8125: getHardwareAddress() ===>\n");
+    DebugLog("getHardwareAddress() ===>\n");
     
     if (addr) {
         bcopy(&currMacAddr.bytes, addr->bytes, kIOEthernetAddressSize);
         result = kIOReturnSuccess;
     }
     
-    DebugLog("RTL8125: getHardwareAddress() <===\n");
+    DebugLog("getHardwareAddress() <===\n");
 
     return result;
 }
 
-IOReturn RTL8125::setPromiscuousMode(bool active)
+IOReturn LucyRTL8125::setPromiscuousMode(bool active)
 {
     UInt32 *filterAddr = (UInt32 *)&multicastFilter;
     UInt32 mcFilter[2];
     UInt32 rxMode;
 
-    DebugLog("RTL8125: setPromiscuousMode() ===>\n");
+    DebugLog("setPromiscuousMode() ===>\n");
     
     if (active) {
-        DebugLog("RTL8125: Promiscuous mode enabled.\n");
+        DebugLog("Promiscuous mode enabled.\n");
         rxMode = (AcceptBroadcast | AcceptMulticast | AcceptMyPhys | AcceptAllPhys);
         mcFilter[1] = mcFilter[0] = 0xffffffff;
     } else {
-        DebugLog("RTL8125: Promiscuous mode disabled.\n");
+        DebugLog("Promiscuous mode disabled.\n");
         rxMode = (AcceptBroadcast | AcceptMulticast | AcceptMyPhys);
         mcFilter[0] = *filterAddr++;
         mcFilter[1] = *filterAddr;
@@ -664,18 +664,18 @@ IOReturn RTL8125::setPromiscuousMode(bool active)
     WriteReg32(MAR0, mcFilter[0]);
     WriteReg32(MAR1, mcFilter[1]);
 
-    DebugLog("RTL8125: setPromiscuousMode() <===\n");
+    DebugLog("setPromiscuousMode() <===\n");
 
     return kIOReturnSuccess;
 }
 
-IOReturn RTL8125::setMulticastMode(bool active)
+IOReturn LucyRTL8125::setMulticastMode(bool active)
 {
     UInt32 *filterAddr = (UInt32 *)&multicastFilter;
     UInt32 mcFilter[2];
     UInt32 rxMode;
 
-    DebugLog("RTL8125: setMulticastMode() ===>\n");
+    DebugLog("setMulticastMode() ===>\n");
     
     if (active) {
         rxMode = (AcceptBroadcast | AcceptMulticast | AcceptMyPhys);
@@ -691,18 +691,18 @@ IOReturn RTL8125::setMulticastMode(bool active)
     WriteReg32(MAR0, mcFilter[0]);
     WriteReg32(MAR1, mcFilter[1]);
     
-    DebugLog("RTL8125: setMulticastMode() <===\n");
+    DebugLog("setMulticastMode() <===\n");
     
     return kIOReturnSuccess;
 }
 
-IOReturn RTL8125::setMulticastList(IOEthernetAddress *addrs, UInt32 count)
+IOReturn LucyRTL8125::setMulticastList(IOEthernetAddress *addrs, UInt32 count)
 {
     UInt32 *filterAddr = (UInt32 *)&multicastFilter;
     UInt64 filter = 0;
     UInt32 i, bitNumber;
     
-    DebugLog("RTL8125: setMulticastList() ===>\n");
+    DebugLog("setMulticastList() ===>\n");
     
     if (count <= kMCFilterLimit) {
         for (i = 0; i < count; i++, addrs++) {
@@ -716,16 +716,16 @@ IOReturn RTL8125::setMulticastList(IOEthernetAddress *addrs, UInt32 count)
     WriteReg32(MAR0, *filterAddr++);
     WriteReg32(MAR1, *filterAddr);
 
-    DebugLog("RTL8125: setMulticastList() <===\n");
+    DebugLog("setMulticastList() <===\n");
 
     return kIOReturnSuccess;
 }
 
-IOReturn RTL8125::getChecksumSupport(UInt32 *checksumMask, UInt32 checksumFamily, bool isOutput)
+IOReturn LucyRTL8125::getChecksumSupport(UInt32 *checksumMask, UInt32 checksumFamily, bool isOutput)
 {
     IOReturn result = kIOReturnUnsupported;
 
-    DebugLog("RTL8125: getChecksumSupport() ===>\n");
+    DebugLog("getChecksumSupport() ===>\n");
 
     if ((checksumFamily == kChecksumFamilyTCPIP) && checksumMask) {
         if (isOutput) {
@@ -735,16 +735,16 @@ IOReturn RTL8125::getChecksumSupport(UInt32 *checksumMask, UInt32 checksumFamily
         }
         result = kIOReturnSuccess;
     }
-    DebugLog("RTL8125: getChecksumSupport() <===\n");
+    DebugLog("getChecksumSupport() <===\n");
 
     return result;
 }
 
-UInt32 RTL8125::getFeatures() const
+UInt32 LucyRTL8125::getFeatures() const
 {
     UInt32 features = (kIONetworkFeatureMultiPages | kIONetworkFeatureHardwareVlan);
     
-    DebugLog("RTL8125: getFeatures() ===>\n");
+    DebugLog("getFeatures() ===>\n");
     
     if (enableTSO4)
         features |= kIONetworkFeatureTSOIPv4;
@@ -752,54 +752,54 @@ UInt32 RTL8125::getFeatures() const
     if (enableTSO6)
         features |= kIONetworkFeatureTSOIPv6;
     
-    DebugLog("RTL8125: getFeatures() <===\n");
+    DebugLog("getFeatures() <===\n");
     
     return features;
 }
 
-IOReturn RTL8125::setWakeOnMagicPacket(bool active)
+IOReturn LucyRTL8125::setWakeOnMagicPacket(bool active)
 {
     IOReturn result = kIOReturnUnsupported;
 
-    DebugLog("RTL8125: setWakeOnMagicPacket() ===>\n");
+    DebugLog("setWakeOnMagicPacket() ===>\n");
 
     if (wolCapable) {
         linuxData.wol_enabled = active ? WOL_ENABLED : WOL_DISABLED;
         wolActive = active;
         
-        DebugLog("RTL8125: WakeOnMagicPacket %s.\n", active ? "enabled" : "disabled");
+        DebugLog("WakeOnMagicPacket %s.\n", active ? "enabled" : "disabled");
 
         result = kIOReturnSuccess;
     }
     
-    DebugLog("RTL8125: setWakeOnMagicPacket() <===\n");
+    DebugLog("setWakeOnMagicPacket() <===\n");
 
     return result;
 }
 
-IOReturn RTL8125::getPacketFilters(const OSSymbol *group, UInt32 *filters) const
+IOReturn LucyRTL8125::getPacketFilters(const OSSymbol *group, UInt32 *filters) const
 {
     IOReturn result = kIOReturnSuccess;
 
-    DebugLog("RTL8125: getPacketFilters() ===>\n");
+    DebugLog("getPacketFilters() ===>\n");
 
     if ((group == gIOEthernetWakeOnLANFilterGroup) && wolCapable) {
         *filters = kIOEthernetWakeOnMagicPacket;
-        DebugLog("RTL8125: kIOEthernetWakeOnMagicPacket added to filters.\n");
+        DebugLog("kIOEthernetWakeOnMagicPacket added to filters.\n");
     } else {
         result = super::getPacketFilters(group, filters);
     }
     
-    DebugLog("RTL8125: getPacketFilters() <===\n");
+    DebugLog("getPacketFilters() <===\n");
 
     return result;
 }
 
-IOReturn RTL8125::setHardwareAddress(const IOEthernetAddress *addr)
+IOReturn LucyRTL8125::setHardwareAddress(const IOEthernetAddress *addr)
 {
     IOReturn result = kIOReturnError;
     
-    DebugLog("RTL8125: setHardwareAddress() ===>\n");
+    DebugLog("setHardwareAddress() ===>\n");
     
     if (addr) {
         bcopy(addr->bytes, &currMacAddr.bytes, kIOEthernetAddressSize);
@@ -807,16 +807,16 @@ IOReturn RTL8125::setHardwareAddress(const IOEthernetAddress *addr)
         result = kIOReturnSuccess;
     }
     
-    DebugLog("RTL8125: setHardwareAddress() <===\n");
+    DebugLog("setHardwareAddress() <===\n");
     
     return result;
 }
 
-IOReturn RTL8125::selectMedium(const IONetworkMedium *medium)
+IOReturn LucyRTL8125::selectMedium(const IONetworkMedium *medium)
 {
     IOReturn result = kIOReturnSuccess;
     
-    DebugLog("RTL8125: selectMedium() ===>\n");
+    DebugLog("selectMedium() ===>\n");
     
     if (medium) {
         flowCtl = kFlowControlOff;
@@ -920,24 +920,24 @@ IOReturn RTL8125::selectMedium(const IONetworkMedium *medium)
         setCurrentMedium(medium);
     }
     
-    DebugLog("RTL8125: selectMedium() <===\n");
+    DebugLog("selectMedium() <===\n");
     
 done:
     return result;
 }
 
-IOReturn RTL8125::getMaxPacketSize(UInt32 * maxSize) const
+IOReturn LucyRTL8125::getMaxPacketSize(UInt32 * maxSize) const
 {
-    DebugLog("RTL8125: getMaxPacketSize() ===>\n");
+    DebugLog("getMaxPacketSize() ===>\n");
     
     *maxSize = kMaxPacketSize;
     
-    DebugLog("RTL8125: getMaxPacketSize() <===\n");
+    DebugLog("getMaxPacketSize() <===\n");
     
     return kIOReturnSuccess;
 }
 
-IOReturn RTL8125::setMaxPacketSize(UInt32 maxSize)
+IOReturn LucyRTL8125::setMaxPacketSize(UInt32 maxSize)
 {
     IOReturn result = kIOReturnError;
     ifnet_t ifnet = netif->getIfnet();
@@ -945,12 +945,12 @@ IOReturn RTL8125::setMaxPacketSize(UInt32 maxSize)
     //UInt32 mask = (IFNET_CSUM_IP | IFNET_CSUM_TCP | IFNET_CSUM_UDP);
     UInt32 mask = 0;
 
-    DebugLog("RTL8125: setMaxPacketSize() ===>\n");
+    DebugLog("setMaxPacketSize() ===>\n");
     
     if (maxSize <= linuxData.max_jumbo_frame_size) {
         mtu = maxSize - (ETH_HLEN + ETH_FCS_LEN);
 
-        DebugLog("RTL8125: maxSize: %u, mtu: %u\n", maxSize, mtu);
+        DebugLog("maxSize: %u, mtu: %u\n", maxSize, mtu);
         
         if (enableTSO4)
             mask |= IFNET_TSO_IPV4;
@@ -965,13 +965,13 @@ IOReturn RTL8125::setMaxPacketSize(UInt32 maxSize)
         
         if (mtu > MSS_MAX) {
             offload &= ~mask;
-            DebugLog("RTL8125: Disable hardware offload features: %x!\n", mask);
+            DebugLog("Disable hardware offload features: %x!\n", mask);
         } else {
             offload |= mask;
-            DebugLog("RTL8125: Enable hardware offload features: %x!\n", mask);
+            DebugLog("Enable hardware offload features: %x!\n", mask);
         }
         if (ifnet_set_offload(ifnet, offload))
-            IOLog("RTL8125: Error setting hardware offload: %x!\n", offload);
+            IOLog("Error setting hardware offload: %x!\n", offload);
 
         /* Force reinitialization. */
         setLinkDown();
@@ -982,14 +982,14 @@ IOReturn RTL8125::setMaxPacketSize(UInt32 maxSize)
         result = kIOReturnSuccess;
     }
     
-    DebugLog("RTL8125: setMaxPacketSize() <===\n");
+    DebugLog("setMaxPacketSize() <===\n");
     
     return result;
 }
 
 #pragma mark --- data structure initialization methods ---
 
-void RTL8125::getParams()
+void LucyRTL8125::getParams()
 {
     OSDictionary *params;
     OSNumber *intrMit;
@@ -1009,7 +1009,7 @@ void RTL8125::getParams()
         noASPM = OSDynamicCast(OSBoolean, params->getObject(kDisableASPMName));
         linuxData.configASPM = (noASPM) ? !(noASPM->getValue()) : 0;
         
-        DebugLog("RTL8125: PCIe ASPM support %s.\n", linuxData.configASPM ? onName : offName);
+        DebugLog("PCIe ASPM support %s.\n", linuxData.configASPM ? onName : offName);
         
         enableEEE = OSDynamicCast(OSBoolean, params->getObject(kEnableEeeName));
         
@@ -1018,22 +1018,22 @@ void RTL8125::getParams()
         else
             linuxData.eee_enabled = 0;
         
-        IOLog("RTL8125: EEE support %s.\n", linuxData.eee_enabled ? onName : offName);
+        IOLog("EEE support %s.\n", linuxData.eee_enabled ? onName : offName);
         
         tso4 = OSDynamicCast(OSBoolean, params->getObject(kEnableTSO4Name));
         enableTSO4 = (tso4) ? tso4->getValue() : false;
         
-        IOLog("RTL8125: TCP/IPv4 segmentation offload %s.\n", enableTSO4 ? onName : offName);
+        IOLog("TCP/IPv4 segmentation offload %s.\n", enableTSO4 ? onName : offName);
         
         tso6 = OSDynamicCast(OSBoolean, params->getObject(kEnableTSO6Name));
         enableTSO6 = (tso6) ? tso6->getValue() : false;
         
-        IOLog("RTL8125: TCP/IPv6 segmentation offload %s.\n", enableTSO6 ? onName : offName);
+        IOLog("TCP/IPv6 segmentation offload %s.\n", enableTSO6 ? onName : offName);
         
         csoV6 = OSDynamicCast(OSBoolean, params->getObject(kEnableCSO6Name));
         enableCSO6 = (csoV6) ? csoV6->getValue() : false;
         
-        IOLog("RTL8125: TCP/IPv6 checksum offload %s.\n", enableCSO6 ? onName : offName);
+        IOLog("TCP/IPv6 checksum offload %s.\n", enableCSO6 ? onName : offName);
         
         intrMit = OSDynamicCast(OSNumber, params->getObject(kIntrMitigateName));
 /*
@@ -1049,7 +1049,7 @@ void RTL8125::getParams()
             if (fbAddr->getLength()) {
                 sscanf(s, "%2hhx:%2hhx:%2hhx:%2hhx:%2hhx:%2hhx", &addr[0], &addr[1], &addr[2], &addr[3], &addr[4], &addr[5]);
                 
-                IOLog("RTL8125: Fallback MAC: %2.2x:%2.2x:%2.2x:%2.2x:%2.2x:%2.2x\n",
+                IOLog("Fallback MAC: %2.2x:%2.2x:%2.2x:%2.2x:%2.2x:%2.2x\n",
                       fallBackMacAddr.bytes[0], fallBackMacAddr.bytes[1],
                       fallBackMacAddr.bytes[2], fallBackMacAddr.bytes[3],
                       fallBackMacAddr.bytes[4], fallBackMacAddr.bytes[5]);
@@ -1061,9 +1061,9 @@ void RTL8125::getParams()
         intrMitigateValue = 0x5f51;
     }
     if (versionString)
-        IOLog("RTL8125: Version %s using interrupt mitigate value 0x%x. Please don't support tonymacx86.com!\n", versionString->getCStringNoCopy(), intrMitigateValue);
+        IOLog("Version %s using interrupt mitigate value 0x%x. Please don't support tonymacx86.com!\n", versionString->getCStringNoCopy(), intrMitigateValue);
     else
-        IOLog("RTL8125: Using interrupt mitigate value 0x%x. Please don't support tonymacx86.com!\n", intrMitigateValue);
+        IOLog("Using interrupt mitigate value 0x%x. Please don't support tonymacx86.com!\n", intrMitigateValue);
 }
 
 static IOMediumType mediumTypeArray[MEDIUM_INDEX_COUNT] = {
@@ -1100,7 +1100,7 @@ static UInt64 mediumSpeedArray[MEDIUM_INDEX_COUNT] = {
     2500 * MBit,
 };
 
-bool RTL8125::setupMediumDict()
+bool LucyRTL8125::setupMediumDict()
 {
     IONetworkMedium *medium;
     UInt32 i;
@@ -1133,7 +1133,7 @@ done:
     return result;
     
 error1:
-    IOLog("RTL8125: Error creating medium dictionary.\n");
+    IOLog("Error creating medium dictionary.\n");
     mediumDict->release();
     
     for (i = MEDIUM_INDEX_AUTO; i < MEDIUM_INDEX_COUNT; i++)
@@ -1142,7 +1142,7 @@ error1:
     goto done;
 }
 
-bool RTL8125::initEventSources(IOService *provider)
+bool LucyRTL8125::initEventSources(IOService *provider)
 {
     IOReturn intrResult;
     int msiIndex = -1;
@@ -1153,7 +1153,7 @@ bool RTL8125::initEventSources(IOService *provider)
     txQueue = reinterpret_cast<IOBasicOutputQueue *>(getOutputQueue());
     
     if (txQueue == NULL) {
-        IOLog("RTL8125: Failed to get output queue.\n");
+        IOLog("Failed to get output queue.\n");
         goto done;
     }
     txQueue->retain();
@@ -1166,20 +1166,20 @@ bool RTL8125::initEventSources(IOService *provider)
         intrIndex++;
     }
     if (msiIndex != -1) {
-        DebugLog("RTL8125: MSI interrupt index: %d\n", msiIndex);
+        DebugLog("MSI interrupt index: %d\n", msiIndex);
         
-        interruptSource = IOInterruptEventSource::interruptEventSource(this, OSMemberFunctionCast(IOInterruptEventSource::Action, this, &RTL8125::interruptOccurredPoll), provider, msiIndex);
+        interruptSource = IOInterruptEventSource::interruptEventSource(this, OSMemberFunctionCast(IOInterruptEventSource::Action, this, &LucyRTL8125::interruptOccurredPoll), provider, msiIndex);
     }
     if (!interruptSource) {
-        IOLog("RTL8125: Error: MSI index was not found or MSI interrupt could not be enabled.\n");
+        IOLog("Error: MSI index was not found or MSI interrupt could not be enabled.\n");
         goto error1;
     }
     workLoop->addEventSource(interruptSource);
     
-    timerSource = IOTimerEventSource::timerEventSource(this, OSMemberFunctionCast(IOTimerEventSource::Action, this, &RTL8125::timerActionRTL8125));
+    timerSource = IOTimerEventSource::timerEventSource(this, OSMemberFunctionCast(IOTimerEventSource::Action, this, &LucyRTL8125::timerActionRTL8125));
     
     if (!timerSource) {
-        IOLog("RTL8125: Failed to create IOTimerEventSource.\n");
+        IOLog("Failed to create IOTimerEventSource.\n");
         goto error2;
     }
     workLoop->addEventSource(timerSource);
@@ -1194,13 +1194,13 @@ error2:
     RELEASE(interruptSource);
 
 error1:
-    IOLog("RTL8125: Error initializing event sources.\n");
+    IOLog("Error initializing event sources.\n");
     txQueue->release();
     txQueue = NULL;
     goto done;
 }
 
-bool RTL8125::setupDMADescriptors()
+bool LucyRTL8125::setupDMADescriptors()
 {
     IOPhysicalSegment rxSegment;
     mbuf_t spareMbuf[kRxNumSpareMbufs];
@@ -1213,11 +1213,11 @@ bool RTL8125::setupDMADescriptors()
     txBufDesc = IOBufferMemoryDescriptor::inTaskWithPhysicalMask(kernel_task, (kIODirectionInOut | kIOMemoryPhysicallyContiguous | kIOMapInhibitCache), kTxDescSize, 0xFFFFFFFFFFFFFF00ULL);
             
     if (!txBufDesc) {
-        IOLog("RTL8125: Couldn't alloc txBufDesc.\n");
+        IOLog("Couldn't alloc txBufDesc.\n");
         goto done;
     }
     if (txBufDesc->prepare() != kIOReturnSuccess) {
-        IOLog("RTL8125: txBufDesc->prepare() failed.\n");
+        IOLog("txBufDesc->prepare() failed.\n");
         goto error1;
     }
     txDescArray = (RtlTxDesc *)txBufDesc->getBytesNoCopy();
@@ -1236,7 +1236,7 @@ bool RTL8125::setupDMADescriptors()
     txMbufCursor = IOMbufNaturalMemoryCursor::withSpecification(0x1000, kMaxSegs);
     
     if (!txMbufCursor) {
-        IOLog("RTL8125: Couldn't create txMbufCursor.\n");
+        IOLog("Couldn't create txMbufCursor.\n");
         goto error2;
     }
     
@@ -1244,12 +1244,12 @@ bool RTL8125::setupDMADescriptors()
     rxBufDesc = IOBufferMemoryDescriptor::inTaskWithPhysicalMask(kernel_task, (kIODirectionInOut | kIOMemoryPhysicallyContiguous | kIOMapInhibitCache), kRxDescSize, 0xFFFFFFFFFFFFFF00ULL);
     
     if (!rxBufDesc) {
-        IOLog("RTL8125: Couldn't alloc rxBufDesc.\n");
+        IOLog("Couldn't alloc rxBufDesc.\n");
         goto error3;
     }
     
     if (rxBufDesc->prepare() != kIOReturnSuccess) {
-        IOLog("RTL8125: rxBufDesc->prepare() failed.\n");
+        IOLog("rxBufDesc->prepare() failed.\n");
         goto error4;
     }
     rxDescArray = (RtlRxDesc *)rxBufDesc->getBytesNoCopy();
@@ -1267,7 +1267,7 @@ bool RTL8125::setupDMADescriptors()
     rxMbufCursor = IOMbufNaturalMemoryCursor::withSpecification(PAGE_SIZE, 1);
     
     if (!rxMbufCursor) {
-        IOLog("RTL8125: Couldn't create rxMbufCursor.\n");
+        IOLog("Couldn't create rxMbufCursor.\n");
         goto error5;
     }
     /* Alloc receive buffers. */
@@ -1275,14 +1275,14 @@ bool RTL8125::setupDMADescriptors()
         m = allocatePacket(kRxBufferPktSize);
         
         if (!m) {
-            IOLog("RTL8125: Couldn't alloc receive buffer.\n");
+            IOLog("Couldn't alloc receive buffer.\n");
             goto error6;
         }
         rxMbufArray[i] = m;
         
         if (rxMbufCursor->getPhysicalSegments(m, &rxSegment, 1) != 1) {
             
-            IOLog("RTL8125: getPhysicalSegments() for receive buffer failed.\n");
+            IOLog("getPhysicalSegments() for receive buffer failed.\n");
             goto error6;
         }
         opts1 = (UInt32)rxSegment.length;
@@ -1295,12 +1295,12 @@ bool RTL8125::setupDMADescriptors()
     statBufDesc = IOBufferMemoryDescriptor::inTaskWithPhysicalMask(kernel_task, (kIODirectionIn | kIOMemoryPhysicallyContiguous | kIOMapInhibitCache), sizeof(RtlStatData), 0xFFFFFFFFFFFFFF00ULL);
     
     if (!statBufDesc) {
-        IOLog("RTL8125: Couldn't alloc statBufDesc.\n");
+        IOLog("Couldn't alloc statBufDesc.\n");
         goto error6;
     }
     
     if (statBufDesc->prepare() != kIOReturnSuccess) {
-        IOLog("RTL8125: statBufDesc->prepare() failed.\n");
+        IOLog("statBufDesc->prepare() failed.\n");
         goto error7;
     }
     statData = (RtlStatData *)statBufDesc->getBytesNoCopy();
@@ -1356,7 +1356,7 @@ error1:
     goto done;
 }
 
-void RTL8125::freeDMADescriptors()
+void LucyRTL8125::freeDMADescriptors()
 {
     UInt32 i;
     
@@ -1391,14 +1391,14 @@ void RTL8125::freeDMADescriptors()
     }
 }
 
-void RTL8125::clearDescriptors()
+void LucyRTL8125::clearDescriptors()
 {
     mbuf_t m;
     UInt32 lastIndex = kTxLastDesc;
     UInt32 opts1;
     UInt32 i;
     
-    DebugLog("RTL8125: clearDescriptors() ===>\n");
+    DebugLog("clearDescriptors() ===>\n");
     
     for (i = 0; i < kNumTxDesc; i++) {
         txDescArray[i].opts1 = OSSwapHostToLittleInt32((i != lastIndex) ? 0 : RingEnd);
@@ -1427,10 +1427,10 @@ void RTL8125::clearDescriptors()
     /* Free packet fragments which haven't been upstreamed yet.  */
     discardPacketFragment();
     
-    DebugLog("RTL8125: clearDescriptors() <===\n");
+    DebugLog("clearDescriptors() <===\n");
 }
 
-void RTL8125::discardPacketFragment()
+void LucyRTL8125::discardPacketFragment()
 {
     /*
      * In case there is a packet fragment which hasn't been enqueued yet
@@ -1445,12 +1445,12 @@ void RTL8125::discardPacketFragment()
 
 #pragma mark --- common interrupt methods ---
 
-void RTL8125::pciErrorInterrupt()
+void LucyRTL8125::pciErrorInterrupt()
 {
     UInt16 cmdReg = pciDevice->configRead16(kIOPCIConfigCommand);
     UInt16 statusReg = pciDevice->configRead16(kIOPCIConfigStatus);
     
-    DebugLog("RTL8125: PCI error: cmdReg=0x%x, statusReg=0x%x\n", cmdReg, statusReg);
+    DebugLog("PCI error: cmdReg=0x%x, statusReg=0x%x\n", cmdReg, statusReg);
 
     cmdReg |= (kIOPCICommandSERR | kIOPCICommandParityError);
     statusReg &= (kIOPCIStatusParityErrActive | kIOPCIStatusSERRActive | kIOPCIStatusMasterAbortActive | kIOPCIStatusTargetAbortActive | kIOPCIStatusTargetAbortCapable);
@@ -1461,7 +1461,7 @@ void RTL8125::pciErrorInterrupt()
     restartRTL8125();
 }
 /*
-void RTL8125::txInterrupt()
+void LucyRTL8125::txInterrupt()
 {
     mbuf_t m;
     SInt32 numDirty = kNumTxDesc - txNumFreeDesc;
@@ -1495,7 +1495,7 @@ void RTL8125::txInterrupt()
         etherStats->dot3TxExtraEntry.interrupts++;
 }
 */
-void RTL8125::txInterrupt()
+void LucyRTL8125::txInterrupt()
 {
     mbuf_t m;
     UInt32 nextClosePtr = ReadReg16(HW_CLO_PTR0_8125);
@@ -1504,7 +1504,7 @@ void RTL8125::txInterrupt()
 
     numDone = ((nextClosePtr - txClosePtr0) & 0xffff);
     
-    //DebugLog("RTL8125: txInterrupt() txClosePtr0: %u, nextClosePtr: %u, numDone: %u.\n", txClosePtr0, nextClosePtr, numDone);
+    //DebugLog("txInterrupt() txClosePtr0: %u, nextClosePtr: %u, numDone: %u.\n", txClosePtr0, nextClosePtr, numDone);
     
     txClosePtr0 = nextClosePtr;
 
@@ -1529,7 +1529,7 @@ void RTL8125::txInterrupt()
         etherStats->dot3TxExtraEntry.interrupts++;
 }
 
-UInt32 RTL8125::rxInterrupt(IONetworkInterface *interface, uint32_t maxCount, IOMbufQueue *pollQueue, void *context)
+UInt32 LucyRTL8125::rxInterrupt(IONetworkInterface *interface, uint32_t maxCount, IOMbufQueue *pollQueue, void *context)
 {
     IOPhysicalSegment rxSegment;
     RtlRxDesc *desc = &rxDescArray[rxNextDescIndex];
@@ -1548,7 +1548,7 @@ UInt32 RTL8125::rxInterrupt(IONetworkInterface *interface, uint32_t maxCount, IO
         
         /* As we don't support jumbo frames we consider fragmented packets as errors. *//*
         if ((descStatus1 & (FirstFrag|LastFrag)) != (FirstFrag|LastFrag)) {
-            DebugLog("RTL8125: Fragmented packet.\n");
+            DebugLog("Fragmented packet.\n");
             etherStats->dot3StatsEntry.frameTooLongs++;
             opts1 |= kRxBufferPktSize;
             goto nextDesc;
@@ -1557,13 +1557,13 @@ UInt32 RTL8125::rxInterrupt(IONetworkInterface *interface, uint32_t maxCount, IO
         descStatus2 = OSSwapLittleToHostInt32(desc->opts2);
         pktSize = (descStatus1 & 0x1fff) - kIOEthernetCRCSize;
         bufPkt = rxMbufArray[rxNextDescIndex];
-        //DebugLog("RTL8125: rxInterrupt(): descStatus1=0x%x, descStatus2=0x%x, pktSize=%u\n", descStatus1, descStatus2, pktSize);
+        //DebugLog("rxInterrupt(): descStatus1=0x%x, descStatus2=0x%x, pktSize=%u\n", descStatus1, descStatus2, pktSize);
         
         newPkt = replaceOrCopyPacket(&bufPkt, pktSize, &replaced);
         
         if (!newPkt) {
             /* Allocation of a new packet failed so that we must leave the original packet in place. */
-            DebugLog("RTL8125: replaceOrCopyPacket() failed.\n");
+            DebugLog("replaceOrCopyPacket() failed.\n");
             etherStats->dot3RxExtraEntry.resourceErrors++;
             opts1 |= kRxBufferPktSize;
             goto nextDesc;
@@ -1572,7 +1572,7 @@ UInt32 RTL8125::rxInterrupt(IONetworkInterface *interface, uint32_t maxCount, IO
         /* If the packet was replaced we have to update the descriptor's buffer address. */
         if (replaced) {
             if (rxMbufCursor->getPhysicalSegments(bufPkt, &rxSegment, 1) != 1) {
-                DebugLog("RTL8125: getPhysicalSegments() failed.\n");
+                DebugLog("getPhysicalSegments() failed.\n");
                 etherStats->dot3RxExtraEntry.resourceErrors++;
                 freePacket(bufPkt);
                 opts1 |= kRxBufferPktSize;
@@ -1645,7 +1645,7 @@ UInt32 RTL8125::rxInterrupt(IONetworkInterface *interface, uint32_t maxCount, IO
     return goodPkts;
 }
 
-void RTL8125::checkLinkStatus()
+void LucyRTL8125::checkLinkStatus()
 {
     struct rtl8125_private *tp = &linuxData;
     UInt16 newIntrMitigate = 0x5f51;
@@ -1725,14 +1725,14 @@ void RTL8125::checkLinkStatus()
     }
 }
 
-void RTL8125::interruptOccurredPoll(OSObject *client, IOInterruptEventSource *src, int count)
+void LucyRTL8125::interruptOccurredPoll(OSObject *client, IOInterruptEventSource *src, int count)
 {
     UInt32 packets;
     UInt32 status;
     
     status = ReadReg32(ISR0_8125);
     
-    //DebugLog("RTL8125: interruptOccurredPoll: status = 0x%x.\n", status);
+    //DebugLog("interruptOccurredPoll: status = 0x%x.\n", status);
 
     /* hotplug/major error/no more work/shared irq */
     if ((status == 0xFFFFFFFF) || !status)
@@ -1764,7 +1764,7 @@ done:
     WriteReg32(IMR0_8125, intrMask);
 }
 
-bool RTL8125::checkForDeadlock()
+bool LucyRTL8125::checkForDeadlock()
 {
     bool deadlock = false;
     
@@ -1774,7 +1774,7 @@ bool RTL8125::checkForDeadlock()
              * In order to avoid false positives when trying to detect transmitter deadlocks, check
              * the transmitter ring once for completed descriptors before we assume a deadlock.
              */
-            DebugLog("RTL8125: Warning: Tx timeout, ISR0=0x%x, IMR0=0x%x, polling=%u.\n", ReadReg32(ISR0_8125), ReadReg32(IMR0_8125), polling);
+            DebugLog("Warning: Tx timeout, ISR0=0x%x, IMR0=0x%x, polling=%u.\n", ReadReg32(ISR0_8125), ReadReg32(IMR0_8125), polling);
             etherStats->dot3TxExtraEntry.timeouts++;
             txInterrupt();
         } else if (deadlockWarn >= kTxDeadlockTreshhold) {
@@ -1783,10 +1783,10 @@ bool RTL8125::checkForDeadlock()
             
             for (i = 0; i < 10; i++) {
                 index = ((txDirtyDescIndex - 1 + i) & kTxDescMask);
-                IOLog("RTL8125: desc[%u]: opts1=0x%x, opts2=0x%x, addr=0x%llx.\n", index, txDescArray[index].opts1, txDescArray[index].opts2, txDescArray[index].addr);
+                IOLog("desc[%u]: opts1=0x%x, opts2=0x%x, addr=0x%llx.\n", index, txDescArray[index].opts1, txDescArray[index].opts2, txDescArray[index].addr);
             }
 #endif
-            IOLog("RTL8125: Tx stalled? Resetting chipset. ISR0=0x%x, IMR0=0x%x.\n", ReadReg32(ISR0_8125), ReadReg32(IMR0_8125));
+            IOLog("Tx stalled? Resetting chipset. ISR0=0x%x, IMR0=0x%x.\n", ReadReg32(ISR0_8125), ReadReg32(IMR0_8125));
             etherStats->dot3TxExtraEntry.resets++;
             restartRTL8125();
             deadlock = true;
@@ -1799,9 +1799,9 @@ bool RTL8125::checkForDeadlock()
 
 #pragma mark --- rx poll methods ---
 
-IOReturn RTL8125::setInputPacketPollingEnable(IONetworkInterface *interface, bool enabled)
+IOReturn LucyRTL8125::setInputPacketPollingEnable(IONetworkInterface *interface, bool enabled)
 {
-    //DebugLog("RTL8125: setInputPacketPollingEnable() ===>\n");
+    //DebugLog("setInputPacketPollingEnable() ===>\n");
 
     if (enabled) {
         intrMask = intrMaskPoll;
@@ -1813,40 +1813,40 @@ IOReturn RTL8125::setInputPacketPollingEnable(IONetworkInterface *interface, boo
     if(isEnabled)
         WriteReg32(IMR0_8125, intrMask);
 
-    //DebugLog("RTL8125: input polling %s.\n", enabled ? "enabled" : "disabled");
+    //DebugLog("input polling %s.\n", enabled ? "enabled" : "disabled");
 
-    //DebugLog("RTL8125: setInputPacketPollingEnable() <===\n");
+    //DebugLog("setInputPacketPollingEnable() <===\n");
     
     return kIOReturnSuccess;
 }
 
-void RTL8125::pollInputPackets(IONetworkInterface *interface, uint32_t maxCount, IOMbufQueue *pollQueue, void *context )
+void LucyRTL8125::pollInputPackets(IONetworkInterface *interface, uint32_t maxCount, IOMbufQueue *pollQueue, void *context )
 {
-    //DebugLog("RTL8125: pollInputPackets() ===>\n");
+    //DebugLog("pollInputPackets() ===>\n");
     
     rxInterrupt(interface, maxCount, pollQueue, context);
     
     /* Finally cleanup the transmitter ring. */
     txInterrupt();
     
-    //DebugLog("RTL8125: pollInputPackets() <===\n");
+    //DebugLog("pollInputPackets() <===\n");
 }
 
 #pragma mark --- hardware specific methods ---
 
-void RTL8125::getTso4Command(UInt32 *cmd1, UInt32 *cmd2, UInt32 mssValue, mbuf_tso_request_flags_t tsoFlags)
+void LucyRTL8125::getTso4Command(UInt32 *cmd1, UInt32 *cmd2, UInt32 mssValue, mbuf_tso_request_flags_t tsoFlags)
 {
     *cmd1 = (GiantSendv4 | (kMinL4HdrOffsetV4 << GTTCPHO_SHIFT));
     *cmd2 = ((mssValue & MSSMask) << MSSShift_8125);
 }
 
-void RTL8125::getTso6Command(UInt32 *cmd1, UInt32 *cmd2, UInt32 mssValue, mbuf_tso_request_flags_t tsoFlags)
+void LucyRTL8125::getTso6Command(UInt32 *cmd1, UInt32 *cmd2, UInt32 mssValue, mbuf_tso_request_flags_t tsoFlags)
 {
     *cmd1 = (GiantSendv6 | (kMinL4HdrOffsetV6 << GTTCPHO_SHIFT));
     *cmd2 = ((mssValue & MSSMask) << MSSShift_8125);
 }
 
-void RTL8125::getChecksumCommand(UInt32 *cmd1, UInt32 *cmd2, mbuf_csum_request_flags_t checksums)
+void LucyRTL8125::getChecksumCommand(UInt32 *cmd1, UInt32 *cmd2, mbuf_csum_request_flags_t checksums)
 {
     if (checksums & kChecksumTCP)
         *cmd2 = (TxIPCS_C | TxTCPCS_C);
@@ -1862,7 +1862,7 @@ void RTL8125::getChecksumCommand(UInt32 *cmd1, UInt32 *cmd2, mbuf_csum_request_f
 
 #ifdef DEBUG
 
-void RTL8125::getChecksumResult(mbuf_t m, UInt32 status1, UInt32 status2)
+void LucyRTL8125::getChecksumResult(mbuf_t m, UInt32 status1, UInt32 status2)
 {
     UInt32 resultMask = 0;
     UInt32 validMask = 0;
@@ -1893,7 +1893,7 @@ void RTL8125::getChecksumResult(mbuf_t m, UInt32 status1, UInt32 status2)
         validMask = (status1 & RxIPF) ? 0 : kChecksumIP;
     }
     if (validMask != resultMask)
-        IOLog("RTL8125: checksums applied: 0x%x, checksums valid: 0x%x\n", resultMask, validMask);
+        IOLog("checksums applied: 0x%x, checksums valid: 0x%x\n", resultMask, validMask);
 
     if (validMask)
         setChecksumResult(m, kChecksumFamilyTCPIP, resultMask, validMask);
@@ -1901,7 +1901,7 @@ void RTL8125::getChecksumResult(mbuf_t m, UInt32 status1, UInt32 status2)
 
 #else
 
-void RTL8125::getChecksumResult(mbuf_t m, UInt32 status1, UInt32 status2)
+void LucyRTL8125::getChecksumResult(mbuf_t m, UInt32 status1, UInt32 status2)
 {
     UInt32 resultMask = 0;
     UInt32 pktType = (status1 & RxProtoMask);
@@ -1943,7 +1943,7 @@ static const char* eeeNames[kEEETypeCount] = {
     ", energy-efficient-ethernet"
 };
 
-void RTL8125::setLinkUp()
+void LucyRTL8125::setLinkUp()
 {
     UInt64 mediumSpeed;
     UInt32 mediumIndex = MEDIUM_INDEX_AUTO;
@@ -2060,14 +2060,14 @@ void RTL8125::setLinkUp()
             pollParams.pollIntervalTime = 1000000;  /* 1ms */
     }
     netif->setPacketPollingParameters(&pollParams, 0);
-    DebugLog("RTL8125: pollIntervalTime: %lluus\n", (pollParams.pollIntervalTime / 1000));
+    DebugLog("pollIntervalTime: %lluus\n", (pollParams.pollIntervalTime / 1000));
 
     netif->startOutputThread();
 
-    IOLog("RTL8125: Link up on en%u, %s, %s, %s%s\n", netif->getUnitNumber(), speedName, duplexName, flowName, eeeName);
+    IOLog("Link up on en%u, %s, %s, %s%s\n", netif->getUnitNumber(), speedName, duplexName, flowName, eeeName);
 }
 
-void RTL8125::setLinkDown()
+void LucyRTL8125::setLinkDown()
 {
     deadlockWarn = 0;
     needsUpdate = false;
@@ -2087,10 +2087,10 @@ void RTL8125::setLinkDown()
     
     setPhyMedium();
     
-    IOLog("RTL8125: Link down on en%u\n", netif->getUnitNumber());
+    IOLog("Link down on en%u\n", netif->getUnitNumber());
 }
 
-void RTL8125::updateStatitics()
+void LucyRTL8125::updateStatitics()
 {
     UInt32 sgColl, mlColl;
     UInt32 cmd;
@@ -2123,10 +2123,10 @@ void RTL8125::updateStatitics()
     }
 }
 
-void RTL8125::timerActionRTL8125(IOTimerEventSource *timer)
+void LucyRTL8125::timerActionRTL8125(IOTimerEventSource *timer)
 {
     if (!linkUp) {
-        DebugLog("RTL8125: Timer fired while link down.\n");
+        DebugLog("Timer fired while link down.\n");
         goto done;
     }
     /* Check for tx deadlock. */

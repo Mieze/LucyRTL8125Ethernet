@@ -22,7 +22,7 @@
 
 #pragma mark --- hardware initialization methods ---
 
-bool RTL8125::initPCIConfigSpace(IOPCIDevice *provider)
+bool LucyRTL8125::initPCIConfigSpace(IOPCIDevice *provider)
 {
     UInt32 pcieLinkCap;
     UInt16 pcieLinkCtl;
@@ -41,15 +41,15 @@ bool RTL8125::initPCIConfigSpace(IOPCIDevice *provider)
     /* Setup power management. */
     if (provider->findPCICapability(kIOPCIPowerManagementCapability, &pmCapOffset)) {
         pmCap = provider->extendedConfigRead16(pmCapOffset + kIOPCIPMCapability);
-        DebugLog("RTL8125: PCI power management capabilities: 0x%x.\n", pmCap);
+        DebugLog("PCI power management capabilities: 0x%x.\n", pmCap);
         
         if (pmCap & kPCIPMCPMESupportFromD3Cold) {
             wolCapable = true;
-            DebugLog("RTL8125: PME# from D3 (cold) supported.\n");
+            DebugLog("PME# from D3 (cold) supported.\n");
         }
         pciPMCtrlOffset = pmCapOffset + kIOPCIPMControl;
     } else {
-        IOLog("RTL8125: PCI power management unsupported.\n");
+        IOLog("PCI power management unsupported.\n");
     }
     provider->enablePCIPowerManagement(kPCIPMCSPowerStateD0);
     
@@ -57,13 +57,13 @@ bool RTL8125::initPCIConfigSpace(IOPCIDevice *provider)
     if (provider->findPCICapability(kIOPCIPCIExpressCapability, &pcieCapOffset)) {
         pcieLinkCap = provider->configRead32(pcieCapOffset + kIOPCIELinkCapability);
         pcieLinkCtl = provider->configRead16(pcieCapOffset + kIOPCIELinkControl);
-        DebugLog("RTL8125: PCIe link capabilities: 0x%08x, link control: 0x%04x.\n", pcieLinkCap, pcieLinkCtl);
+        DebugLog("PCIe link capabilities: 0x%08x, link control: 0x%04x.\n", pcieLinkCap, pcieLinkCtl);
         
         if (linuxData.configASPM == 0) {
-            IOLog("RTL8125: Disable PCIe ASPM.\n");
+            IOLog("Disable PCIe ASPM.\n");
             provider->setASPMState(this, 0);
         } else {
-            IOLog("RTL8125: Warning: Enable PCIe ASPM.\n");
+            IOLog("Warning: Enable PCIe ASPM.\n");
             provider->setASPMState(this, kIOPCIELinkCtlASPM | kIOPCIELinkCtlClkPM);
             linuxData.configASPM = 1;
         }
@@ -78,7 +78,7 @@ bool RTL8125::initPCIConfigSpace(IOPCIDevice *provider)
     baseMap = provider->mapDeviceMemoryWithRegister(kIOPCIConfigBaseAddress2, kIOMapInhibitCache);
     
     if (!baseMap) {
-        IOLog("RTL8125: region #1 not an MMIO resource, aborting.\n");
+        IOLog("region #2 not an MMIO resource, aborting.\n");
         goto done;
     }
     baseAddr = reinterpret_cast<volatile void *>(baseMap->getVirtualAddress());
@@ -89,9 +89,9 @@ done:
     return result;
 }
 
-IOReturn RTL8125::setPowerStateWakeAction(OSObject *owner, void *arg1, void *arg2, void *arg3, void *arg4)
+IOReturn LucyRTL8125::setPowerStateWakeAction(OSObject *owner, void *arg1, void *arg2, void *arg3, void *arg4)
 {
-    RTL8125 *ethCtlr = OSDynamicCast(RTL8125, owner);
+    LucyRTL8125 *ethCtlr = OSDynamicCast(LucyRTL8125, owner);
     IOPCIDevice *dev;
     UInt16 val16;
     UInt8 offset;
@@ -110,9 +110,9 @@ IOReturn RTL8125::setPowerStateWakeAction(OSObject *owner, void *arg1, void *arg
     return kIOReturnSuccess;
 }
 
-IOReturn RTL8125::setPowerStateSleepAction(OSObject *owner, void *arg1, void *arg2, void *arg3, void *arg4)
+IOReturn LucyRTL8125::setPowerStateSleepAction(OSObject *owner, void *arg1, void *arg2, void *arg3, void *arg4)
 {
-    RTL8125 *ethCtlr = OSDynamicCast(RTL8125, owner);
+    LucyRTL8125 *ethCtlr = OSDynamicCast(LucyRTL8125, owner);
     IOPCIDevice *dev;
     UInt16 val16;
     UInt8 offset;
@@ -140,7 +140,7 @@ IOReturn RTL8125::setPowerStateSleepAction(OSObject *owner, void *arg1, void *ar
  * of the underlying Linux sources.
  */
 
-bool RTL8125::initRTL8125()
+bool LucyRTL8125::initRTL8125()
 {
     struct rtl8125_private *tp = &linuxData;
     UInt32 i;
@@ -151,7 +151,7 @@ bool RTL8125::initRTL8125()
     rtl8125_get_mac_version(tp);
     
     if (tp->mcfg == CFG_METHOD_DEFAULT) {
-        DebugLog("RTL8125: Retry chip recognition.\n");
+        DebugLog("Retry chip recognition.\n");
         
         /* In case chip recognition failed clear corresponding bits... */
         WriteReg32(TxConfig, ReadReg32(TxConfig) & ~0x7CF00000);
@@ -160,7 +160,7 @@ bool RTL8125::initRTL8125()
         rtl8125_get_mac_version(tp);
     }
     if (tp->mcfg >= CFG_METHOD_MAX) {
-        DebugLog("RTL8125: Unsupported chip found. Aborting...\n");
+        DebugLog("Unsupported chip found. Aborting...\n");
         goto done;
     }
     tp->chipset =  tp->mcfg;
@@ -374,14 +374,14 @@ bool RTL8125::initRTL8125()
     if (is_valid_ether_addr((UInt8 *) macAddr)) {
         rtl8125_rar_set(tp, macAddr);
     } else {
-        IOLog("RTL8125: Using fallback MAC.\n");
+        IOLog("Using fallback MAC.\n");
         rtl8125_rar_set(tp, fallBackMacAddr.bytes);
     }
     for (i = 0; i < MAC_ADDR_LEN; i++) {
         currMacAddr.bytes[i] = ReadReg8(MAC0 + i);
         origMacAddr.bytes[i] = currMacAddr.bytes[i]; /* keep the original MAC address */
     }
-    IOLog("RTL8125: %s: (Chipset %d), %2.2x:%2.2x:%2.2x:%2.2x:%2.2x:%2.2x\n",
+    IOLog("%s: (Chipset %d), %2.2x:%2.2x:%2.2x:%2.2x:%2.2x:%2.2x\n",
           rtl_chip_info[tp->chipset].name, tp->chipset,
           origMacAddr.bytes[0], origMacAddr.bytes[1],
           origMacAddr.bytes[2], origMacAddr.bytes[3],
@@ -409,7 +409,7 @@ bool RTL8125::initRTL8125()
 #ifdef DEBUG
     
     if (wolCapable)
-        IOLog("RTL8125: Device is WoL capable.\n");
+        IOLog("Device is WoL capable.\n");
     
 #endif
     
@@ -419,7 +419,7 @@ done:
     return result;
 }
 
-void RTL8125::enableRTL8125()
+void LucyRTL8125::enableRTL8125()
 {
     struct rtl8125_private *tp = &linuxData;
     
@@ -440,7 +440,7 @@ void RTL8125::enableRTL8125()
     setPhyMedium();
 }
 
-void RTL8125::disableRTL8125()
+void LucyRTL8125::disableRTL8125()
 {
     struct rtl8125_private *tp = &linuxData;
     
@@ -457,7 +457,7 @@ void RTL8125::disableRTL8125()
     if (linkUp) {
         linkUp = false;
         setLinkStatus(kIONetworkLinkValid);
-        IOLog("RTL8125: Link down on en%u\n", netif->getUnitNumber());
+        IOLog("Link down on en%u\n", netif->getUnitNumber());
     }
 }
 
@@ -466,7 +466,7 @@ void RTL8125::disableRTL8125()
  * been reestablished.
  */
 
-void RTL8125::restartRTL8125()
+void LucyRTL8125::restartRTL8125()
 {
     /* Stop output thread and flush txQueue */
     netif->stopOutputThread();
@@ -487,7 +487,7 @@ void RTL8125::restartRTL8125()
     enableRTL8125();
 }
 
-void RTL8125::setupRTL8125(UInt16 newIntrMitigate, bool enableInterrupts)
+void LucyRTL8125::setupRTL8125(UInt16 newIntrMitigate, bool enableInterrupts)
 {
     struct rtl8125_private *tp = &linuxData;
     UInt32 i;
@@ -786,7 +786,7 @@ void RTL8125::setupRTL8125(UInt16 newIntrMitigate, bool enableInterrupts)
     udelay(10);
 }
 
-void RTL8125::setPhyMedium()
+void LucyRTL8125::setPhyMedium()
 {
     struct rtl8125_private *tp = netdev_priv(&linuxData);
     int auto_nego = 0;
@@ -813,10 +813,10 @@ void RTL8125::setPhyMedium()
     /* Enable or disable EEE support according to selected medium. */
     if ((linuxData.eee_adv_t != 0) && (autoneg == AUTONEG_ENABLE)) {
         rtl8125_enable_eee(tp);
-        DebugLog("RTL8125: Enable EEE support.\n");
+        DebugLog("Enable EEE support.\n");
     } else {
         rtl8125_disable_eee(tp);
-        DebugLog("RTL8125: Disable EEE support.\n");
+        DebugLog("Disable EEE support.\n");
     }
     if (autoneg == AUTONEG_ENABLE) {
         /*n-way force*/
@@ -886,11 +886,11 @@ void RTL8125::setPhyMedium()
 
 /* Set PCI configuration space offset 0x79 to setting. */
 
-void RTL8125::setOffset79(UInt8 setting)
+void LucyRTL8125::setOffset79(UInt8 setting)
 {
     UInt8 deviceControl;
     
-    DebugLog("RTL8125: setOffset79() ===>\n");
+    DebugLog("setOffset79() ===>\n");
     
     if (!(linuxData.hwoptimize & HW_PATCH_SOC_LAN)) {
         deviceControl = pciDevice->configRead8(0x79);
@@ -899,10 +899,10 @@ void RTL8125::setOffset79(UInt8 setting)
         pciDevice->configWrite8(0x79, deviceControl);
     }
     
-    DebugLog("RTL8125: setOffset79() <===\n");
+    DebugLog("setOffset79() <===\n");
 }
 
-UInt8 RTL8125::csiFun0ReadByte(UInt32 addr)
+UInt8 LucyRTL8125::csiFun0ReadByte(UInt32 addr)
 {
     struct rtl8125_private *tp = &linuxData;
     UInt8 retVal = 0;
@@ -923,7 +923,7 @@ UInt8 RTL8125::csiFun0ReadByte(UInt32 addr)
     return retVal;
 }
 
-void RTL8125::csiFun0WriteByte(UInt32 addr, UInt8 value)
+void LucyRTL8125::csiFun0WriteByte(UInt32 addr, UInt8 value)
 {
     struct rtl8125_private *tp = &linuxData;
 
@@ -944,7 +944,7 @@ void RTL8125::csiFun0WriteByte(UInt32 addr, UInt8 value)
     udelay(20);
 }
 
-void RTL8125::enablePCIOffset99()
+void LucyRTL8125::enablePCIOffset99()
 {
     struct rtl8125_private *tp = &linuxData;
     u32 csi_tmp;
@@ -977,7 +977,7 @@ void RTL8125::enablePCIOffset99()
     }
 }
 
-void RTL8125::disablePCIOffset99()
+void LucyRTL8125::disablePCIOffset99()
 {
     struct rtl8125_private *tp = &linuxData;
 
@@ -1000,7 +1000,7 @@ void RTL8125::disablePCIOffset99()
     }
 }
 
-void RTL8125::initPCIOffset99()
+void LucyRTL8125::initPCIOffset99()
 {
     struct rtl8125_private *tp = &linuxData;
     u32 csi_tmp;
@@ -1054,7 +1054,7 @@ void RTL8125::initPCIOffset99()
     enablePCIOffset99();
 }
 
-void RTL8125::setPCI99_180ExitDriverPara()
+void LucyRTL8125::setPCI99_180ExitDriverPara()
 {
     struct rtl8125_private *tp = &linuxData;
     
@@ -1084,7 +1084,7 @@ void RTL8125::setPCI99_180ExitDriverPara()
     }
 }
 
-void RTL8125::hardwareD3Para()
+void LucyRTL8125::hardwareD3Para()
 {
     struct rtl8125_private *tp = &linuxData;
     
@@ -1122,7 +1122,7 @@ void RTL8125::hardwareD3Para()
     rtl8125_disable_rxdvgate(tp);
 }
 
-UInt16 RTL8125::getEEEMode()
+UInt16 LucyRTL8125::getEEEMode()
 {
     struct rtl8125_private *tp = &linuxData;
     UInt16 eee = 0;
@@ -1131,25 +1131,25 @@ UInt16 RTL8125::getEEEMode()
     if (eeeCap) {
         /* Get supported EEE. */
         sup = mdio_direct_read_phy_ocp(tp, 0xA5C4);
-        DebugLog("RTL8125: EEE supported: %u\n", sup);
+        DebugLog("EEE supported: %u\n", sup);
 
         /* Get advertisement EEE. */
         adv = mdio_direct_read_phy_ocp(tp, 0xA5D0);
-        DebugLog("RTL8125: EEE advertised: %u\n", adv);
+        DebugLog("EEE advertised: %u\n", adv);
 
         /* Get LP advertisement EEE. */
         lpa = mdio_direct_read_phy_ocp(tp, 0xA5D2);
-        DebugLog("RTL8125: EEE link partner: %u\n", lpa);
+        DebugLog("EEE link partner: %u\n", lpa);
 
         ena = rtl8125_mac_ocp_read(tp, 0xE040);
         ena &= BIT_1 | BIT_0;
-        DebugLog("RTL8125: EEE enabled: %u\n", ena);
+        DebugLog("EEE enabled: %u\n", ena);
 
         eee = (sup & adv & lpa);
     }
     return eee;
 }
-void RTL8125::exitOOB()
+void LucyRTL8125::exitOOB()
 {
     struct rtl8125_private *tp = &linuxData;
     UInt16 data16;
@@ -1212,7 +1212,7 @@ void RTL8125::exitOOB()
     tp->phy_reg_anlpar = 0;
 }
 
-void RTL8125::powerDownPLL()
+void LucyRTL8125::powerDownPLL()
 {
     struct rtl8125_private *tp = &linuxData;
 

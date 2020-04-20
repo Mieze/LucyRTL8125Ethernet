@@ -200,10 +200,10 @@ enum
 
 extern const struct RTLChipInfo rtl_chip_info[];
 
-class RTL8125 : public super
+class LucyRTL8125 : public super
 {
     
-    OSDeclareDefaultStructors(RTL8125)
+    OSDeclareDefaultStructors(LucyRTL8125)
     
 public:
     /* IOService (or its superclass) methods. */
