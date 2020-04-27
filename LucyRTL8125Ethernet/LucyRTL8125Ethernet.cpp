@@ -827,6 +827,7 @@ IOReturn LucyRTL8125::selectMedium(const IONetworkMedium *medium)
                 autoneg = AUTONEG_ENABLE;
                 speed = 0;
                 duplex = DUPLEX_FULL;
+                linuxData.eee_adv_t = eeeCap;
                 break;
                 
             case MEDIUM_INDEX_10HD:

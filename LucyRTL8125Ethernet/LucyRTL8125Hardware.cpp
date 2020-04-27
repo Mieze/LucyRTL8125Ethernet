@@ -828,7 +828,7 @@ void LucyRTL8125::setPhyMedium()
         if (speed == SPEED_2500) {
             if (use_default) {
                 /* The default medium has been selected. */
-                auto_nego |= (ADVERTISE_10HALF | ADVERTISED_10baseT_Full | ADVERTISED_100baseT_Half | ADVERTISE_100FULL);
+                auto_nego |= (ADVERTISE_10HALF | ADVERTISE_10FULL | ADVERTISE_100HALF | ADVERTISE_100FULL);
                 giga_ctrl |= (ADVERTISE_1000HALF | ADVERTISE_1000FULL);
                 ctrl_2500 |= RTK_ADVERTISE_2500FULL;
             } else {
@@ -842,7 +842,7 @@ void LucyRTL8125::setPhyMedium()
             }
         } else if (speed == SPEED_100) {
             if (duplex == DUPLEX_HALF) {
-                auto_nego |= ADVERTISED_100baseT_Half;
+                auto_nego |= ADVERTISE_100HALF;
             } else {
                 auto_nego |=  ADVERTISE_100FULL;
             }
@@ -850,12 +850,12 @@ void LucyRTL8125::setPhyMedium()
             if (duplex == DUPLEX_HALF) {
                 auto_nego |= ADVERTISE_10HALF;
             } else {
-                auto_nego |= ADVERTISED_10baseT_Full;
+                auto_nego |= ADVERTISE_10FULL;
             }
         }
         
         /* Set flow control support. */
-        if (flowCtl)
+        if (flowCtl == kFlowControlOn)
             auto_nego |= (ADVERTISE_PAUSE_CAP | ADVERTISE_PAUSE_ASYM);
 
         tp->phy_auto_nego_reg = auto_nego;
