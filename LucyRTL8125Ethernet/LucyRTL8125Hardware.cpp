@@ -881,7 +881,6 @@ void LucyRTL8125::setPhyMedium()
     tp->autoneg = autoneg;
     tp->speed = speed;
     tp->duplex = duplex;
-    //tp->advertising = adv;
 }
 
 /* Set PCI configuration space offset 0x79 to setting. */

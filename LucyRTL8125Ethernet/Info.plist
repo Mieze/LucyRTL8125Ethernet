@@ -35,9 +35,9 @@
 				<key>enableEEE</key>
 				<true/>
 				<key>enableTSO4</key>
-				<false/>
+				<true/>
 				<key>enableTSO6</key>
-				<false/>
+				<true/>
 				<key>fallbackMAC</key>
 				<string></string>
 				<key>intrMitigate</key>
@@ -48,7 +48,7 @@
 			<key>IOClass</key>
 			<string>LucyRTL8125</string>
 			<key>IOPCIMatch</key>
-			<string>0x812510ec 0x81251186 0x300010ec 0x300010ec</string>
+			<string>0x812510ec 0x81251186 0x300010ec</string>
 			<key>IOProbeScore</key>
 			<integer>1000</integer>
 			<key>IOProviderClass</key>
