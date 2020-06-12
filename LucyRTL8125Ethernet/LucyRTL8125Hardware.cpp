@@ -163,8 +163,9 @@ bool LucyRTL8125::initRTL8125()
         DebugLog("Unsupported chip found. Aborting...\n");
         goto done;
     }
-    tp->chipset =  tp->mcfg;
     
+    for (tp->chipset = 0; rtl_chip_info[tp->chipset].mcfg != tp->mcfg; tp->chipset++);
+
     /* Setup EEE support. */
     tp->eee_adv_t = eeeCap = (MDIO_EEE_100TX | MDIO_EEE_1000T);
     
