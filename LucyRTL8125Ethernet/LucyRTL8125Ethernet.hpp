@@ -294,7 +294,7 @@ private:
     void setPCI99_180ExitDriverPara();
     void hardwareD3Para();
     UInt16 getEEEMode();
-    void exitOOB();
+    void exitOOB(bool doAll = true);
     void powerDownPLL();
     
     /* Descriptor related methods. */

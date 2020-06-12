@@ -1885,7 +1885,7 @@ int rtl8125_disable_eee_plus(struct rtl8125_private *tp);
 int rtl8125_enable_eee(struct rtl8125_private *tp);
 int rtl8125_disable_eee(struct rtl8125_private *tp);
 
-void rtl8125_nic_reset(struct net_device *dev);
+void rtl8125_nic_reset(struct net_device *dev, bool doAll = true);
 void rtl8125_get_mac_version(struct rtl8125_private *tp);
 void rtl8125_xmii_reset_enable(struct net_device *dev);
 unsigned int rtl8125_xmii_reset_pending(struct net_device *dev);

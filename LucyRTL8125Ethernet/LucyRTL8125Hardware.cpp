@@ -351,9 +351,9 @@ bool LucyRTL8125::initRTL8125()
     tp->eee_enabled = eee_enable;
     tp->eee_adv_t = MDIO_EEE_1000T | MDIO_EEE_100TX;
     
-    exitOOB();
+    exitOOB(false);
     rtl8125_hw_init(tp);
-    rtl8125_nic_reset(tp);
+    rtl8125_nic_reset(tp, false);
     
     /* Get production from EEPROM */
     rtl8125_eeprom_type(tp);
@@ -1149,7 +1149,7 @@ UInt16 LucyRTL8125::getEEEMode()
     }
     return eee;
 }
-void LucyRTL8125::exitOOB()
+void LucyRTL8125::exitOOB(bool doAll)
 {
     struct rtl8125_private *tp = &linuxData;
     UInt16 data16;
@@ -1175,7 +1175,7 @@ void LucyRTL8125::exitOOB()
             break;
     }
 
-    rtl8125_nic_reset(tp);
+    rtl8125_nic_reset(tp, doAll);
 
     switch (tp->mcfg) {
         case CFG_METHOD_2:

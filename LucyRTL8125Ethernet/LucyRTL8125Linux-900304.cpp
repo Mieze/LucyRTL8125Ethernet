@@ -2705,16 +2705,17 @@ rtl8125_irq_mask_and_ack(struct rtl8125_private *tp)
 #endif /* DISABLED_CODE */
 
 void
-rtl8125_nic_reset(struct net_device *dev)
+rtl8125_nic_reset(struct net_device *dev, bool doAll)
 {
         struct rtl8125_private *tp = netdev_priv(dev);
         int i;
 
         RTL_W32(tp, RxConfig, (RX_DMA_BURST << RxCfgDMAShift));
 
+    if (doAll) {
         rtl8125_enable_rxdvgate(dev);
-
         rtl8125_wait_txrx_fifo_empty(dev);
+    }
 
         switch (tp->mcfg) {
         case CFG_METHOD_2:
@@ -3463,6 +3464,10 @@ rtl8125_set_hw_wol(struct net_device *dev, u32 wolopts)
                         rtl8125_enable_magic_packet(dev);
                 else
                         rtl8125_disable_magic_packet(dev);
+                break;
+            default:
+                tmp = 0;
+                DebugLog("BB Error Tmp undefined");
                 break;
         }
 
