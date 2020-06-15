@@ -140,6 +140,58 @@ IOReturn LucyRTL8125::setPowerStateSleepAction(OSObject *owner, void *arg1, void
  * of the underlying Linux sources.
  */
 
+IOReturn LucyRTL8125::identifyChip()
+{
+    struct rtl8125_private *tp = &linuxData;
+    IOReturn result = kIOReturnSuccess;
+    UInt32 reg, val32;
+    UInt32 version;
+
+    val32 = ReadReg32(TxConfig);
+    reg = val32 & 0x7c800000;
+    version = val32 & 0x00700000;
+
+    switch (reg) {
+        case 0x60800000:
+            if (version == 0x00000000) {
+                tp->mcfg = CFG_METHOD_2;
+                tp->chipset = 0;
+            } else if (version == 0x100000) {
+                tp->mcfg = CFG_METHOD_3;
+                tp->chipset = 1;
+            } else {
+                tp->mcfg = CFG_METHOD_3;
+                tp->chipset = 1;
+                tp->HwIcVerUnknown = TRUE;
+            }
+            tp->efuse_ver = EFUSE_SUPPORT_V4;
+            break;
+            
+        case 0x64000000:
+            if (version == 0x00000000) {
+                tp->mcfg = CFG_METHOD_4;
+                tp->chipset = 2;
+            } else if (version == 0x100000) {
+                tp->mcfg = CFG_METHOD_5;
+                tp->chipset = 3;
+            } else {
+                tp->mcfg = CFG_METHOD_5;
+                tp->chipset = 3;
+                tp->HwIcVerUnknown = TRUE;
+            }
+            tp->efuse_ver = EFUSE_SUPPORT_V4;
+            break;
+            
+        default:
+            tp->mcfg = CFG_METHOD_DEFAULT;
+            tp->HwIcVerUnknown = TRUE;
+            tp->efuse_ver = EFUSE_NOT_SUPPORT;
+            result = kIOReturnError;
+            break;
+    }
+    return result;
+}
+
 bool LucyRTL8125::initRTL8125()
 {
     struct rtl8125_private *tp = &linuxData;
@@ -148,22 +200,10 @@ bool LucyRTL8125::initRTL8125()
     bool result = false;
     
     /* Identify chip attached to board. */
-    rtl8125_get_mac_version(tp);
-    
-    if (tp->mcfg == CFG_METHOD_DEFAULT) {
-        DebugLog("Retry chip recognition.\n");
-        
-        /* In case chip recognition failed clear corresponding bits... */
-        WriteReg32(TxConfig, ReadReg32(TxConfig) & ~0x7CF00000);
-        
-        /* ...and try again. */
-        rtl8125_get_mac_version(tp);
-    }
-    if (tp->mcfg >= CFG_METHOD_MAX) {
-        DebugLog("Unsupported chip found. Aborting...\n");
+    if(identifyChip()) {
+        IOLog("Unsupported chip found. Aborting...\n");
         goto done;
     }
-    tp->chipset =  tp->mcfg;
     
     /* Setup EEE support. */
     tp->eee_adv_t = eeeCap = (MDIO_EEE_100TX | MDIO_EEE_1000T);

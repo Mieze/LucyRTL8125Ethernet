@@ -1062,9 +1062,9 @@ void LucyRTL8125::getParams()
         intrMitigateValue = 0x5f51;
     }
     if (versionString)
-        IOLog("Version %s using interrupt mitigate value 0x%x. Please don't support tonymacx86.com!\n", versionString->getCStringNoCopy(), intrMitigateValue);
+        IOLog("LucyRTL8125Ethernet version %s starting. Please don't support tonymacx86.com!\n", versionString->getCStringNoCopy());
     else
-        IOLog("Using interrupt mitigate value 0x%x. Please don't support tonymacx86.com!\n", intrMitigateValue);
+        IOLog("LucyRTL8125Ethernet starting. Please don't support tonymacx86.com!\n");
 }
 
 static IOMediumType mediumTypeArray[MEDIUM_INDEX_COUNT] = {

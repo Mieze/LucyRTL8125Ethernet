@@ -279,6 +279,7 @@ private:
     void discardPacketFragment();
 
     /* Hardware initialization methods. */
+    IOReturn identifyChip();
     bool initRTL8125();
     void enableRTL8125();
     void disableRTL8125();
