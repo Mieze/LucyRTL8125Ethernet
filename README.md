@@ -16,3 +16,8 @@ A macOS driver for Realtek RTL8125 2.5GBit Ethernet Controllers
 * Support for Energy Efficient Ethernet (EEE) which can be disabled by setting enableEEE to NO in the drivers Info.plist without rebuild. The default is YES.
 * The driver is published under GPLv2.
 
+## Support
+
+In case you are looking for a prebuilt binary or need support, please see ther driver's thread on insanelymac.com:
+
+https://www.insanelymac.com/forum/topic/343542-lucyrtl8125ethernetkext-for-realtek-rtl8125/
