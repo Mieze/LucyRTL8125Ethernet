@@ -494,8 +494,7 @@ IOReturn LucyRTL8125::outputStart(IONetworkInterface *interface, IOOptionBits op
         }
         firstDesc->opts1 |= DescOwn;
     }
-    /* Set the polling bit. */
-    //WriteReg16(TPPOLL_8125, BIT_0);
+    /* Update tail pointer. */
     WriteReg16(SW_TAIL_PTR0_8125, txTailPtr0 & 0xffff);
 
     result = (txNumFreeDesc > (kMaxSegs + 3)) ? kIOReturnSuccess : kIOReturnNoResources;
@@ -827,7 +826,7 @@ IOReturn LucyRTL8125::selectMedium(const IONetworkMedium *medium)
                 autoneg = AUTONEG_ENABLE;
                 speed = 0;
                 duplex = DUPLEX_FULL;
-                linuxData.eee_adv_t = eeeCap;
+                //linuxData.eee_adv_t = eeeCap;
                 break;
                 
             case MEDIUM_INDEX_10HD:
@@ -917,8 +916,9 @@ IOReturn LucyRTL8125::selectMedium(const IONetworkMedium *medium)
                 flowCtl = kFlowControlOn;
                 break;                
         }
-        setPhyMedium();
+        //setPhyMedium();
         setCurrentMedium(medium);
+        setLinkDown();
     }
     
     DebugLog("selectMedium() <===\n");
@@ -1651,7 +1651,9 @@ void LucyRTL8125::checkLinkStatus()
     struct rtl8125_private *tp = &linuxData;
     UInt16 newIntrMitigate = 0x5f51;
     UInt16 currLinkState;
-        
+    
+    DebugLog("Link change interrupt: Check link status.\n");
+
     currLinkState = ReadReg16(PHYstatus);
     
     if (currLinkState & LinkStatus) {

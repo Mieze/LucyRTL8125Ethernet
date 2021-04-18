@@ -72,6 +72,7 @@ IOLog(format, ##args);
 #define u32     UInt32
 #define u64     UInt64
 #define s32     SInt32
+#define s64     SInt64
 #define __be16  SInt16
 #define __be32  SInt32
 #define __be64  SInt64
@@ -291,7 +292,6 @@ struct pci_dev {
     UInt16 subsystem_device;
 };
 
-#define eee_enable tp->configEEE
 #define aspm tp->configASPM
 #define s0_magic_packet tp->s0MagicPacket
 

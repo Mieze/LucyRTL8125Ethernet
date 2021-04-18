@@ -18,7 +18,7 @@
 * This driver is based on Realtek's r8125 Linux driver (9.003.04).
 */
 
-#include "LucyRTL8125Linux-900304.hpp"
+#include "LucyRTL8125Linux-900501.hpp"
 
 #ifdef DEBUG
 #define DebugLog(args...) IOLog(args)
@@ -87,11 +87,11 @@ typedef struct RtlRxDesc {
 typedef struct RtlTxDesc {
     UInt32 opts1;
     UInt32 opts2;
-    UInt64 addr;    /*
+    UInt64 addr;
     UInt32 reserved0;
     UInt32 reserved1;
     UInt32 reserved2;
-    UInt32 reserved3;*/
+    UInt32 reserved3;
 } RtlTxDesc;
 
 /* RTL8125's statistics dump data structure */
@@ -297,7 +297,12 @@ private:
     UInt16 getEEEMode();
     void exitOOB();
     void powerDownPLL();
-    
+    void configPhyHardware();
+    void configPhyHardware8125a1();
+    void configPhyHardware8125a2();
+    void configPhyHardware8125b1();
+    void configPhyHardware8125b2();
+
     /* Descriptor related methods. */
     inline void getChecksumCommand(UInt32 *cmd1, UInt32 *cmd2, mbuf_csum_request_flags_t checksums);
     inline void getTso4Command(UInt32 *cmd1, UInt32 *cmd2, UInt32 mssValue, mbuf_tso_request_flags_t tsoFlags);
