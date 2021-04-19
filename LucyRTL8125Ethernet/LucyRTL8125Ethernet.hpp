@@ -190,7 +190,7 @@ enum
 #define kEnableCSO6Name "enableCSO6"
 #define kEnableTSO4Name "enableTSO4"
 #define kEnableTSO6Name "enableTSO6"
-#define kIntrMitigateName "intrMitigate"
+#define kPollInt2500Name "usPollInt2500"
 #define kDisableASPMName "disableASPM"
 #define kDriverVersionName "Driver_Version"
 #define kFallbackName "fallbackMAC"
@@ -378,6 +378,7 @@ private:
 
     UInt64 lastIntrTime;
     UInt32 intrMask;
+    UInt32 pollInterval2500;
     UInt16 intrMitigateValue;
     
     UInt16 intrMaskRxTx;

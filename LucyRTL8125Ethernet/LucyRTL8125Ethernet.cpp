@@ -84,6 +84,7 @@ bool LucyRTL8125::init(OSDictionary *properties)
         pciDeviceData.subsystem_device = 0;
         linuxData.pci_dev = &pciDeviceData;
         intrMitigateValue = 0x5f51;
+        pollInterval2500 = 0;
         lastIntrTime = 0;
         wolCapable = false;
         wolActive = false;
@@ -993,7 +994,7 @@ IOReturn LucyRTL8125::setMaxPacketSize(UInt32 maxSize)
 void LucyRTL8125::getParams()
 {
     OSDictionary *params;
-    OSNumber *intrMit;
+    OSNumber *pollInt;
     OSBoolean *enableEEE;
     OSBoolean *tso4;
     OSBoolean *tso6;
@@ -1001,7 +1002,8 @@ void LucyRTL8125::getParams()
     OSBoolean *noASPM;
     OSString *versionString;
     OSString *fbAddr;
-
+    UInt32 usInterval;
+    
     versionString = OSDynamicCast(OSString, getProperty(kDriverVersionName));
 
     params = OSDynamicCast(OSDictionary, getProperty(kParamName));
@@ -1036,11 +1038,20 @@ void LucyRTL8125::getParams()
         
         IOLog("TCP/IPv6 checksum offload %s.\n", enableCSO6 ? onName : offName);
         
-        intrMit = OSDynamicCast(OSNumber, params->getObject(kIntrMitigateName));
-/*
-        if (intrMit && !rxPoll)
-            intrMitigateValue = intrMit->unsigned16BitValue();
-*/
+        pollInt = OSDynamicCast(OSNumber, params->getObject(kPollInt2500Name));
+
+        if (pollInt) {
+            usInterval = pollInt->unsigned32BitValue();
+            
+            if (usInterval > 200)
+                pollInterval2500 = 0;
+            else if (usInterval < 100)
+                pollInterval2500 = 0;
+            else
+                pollInterval2500 = usInterval * 1000;
+        } else {
+            pollInterval2500 = 0;
+        }
         fbAddr = OSDynamicCast(OSString, params->getObject(kFallbackName));
         
         if (fbAddr) {
@@ -1059,7 +1070,7 @@ void LucyRTL8125::getParams()
     } else {
         enableTSO4 = true;
         enableTSO6 = true;
-        intrMitigateValue = 0x5f51;
+        pollInterval2500 = 0;
     }
     if (versionString)
         IOLog("LucyRTL8125Ethernet version %s starting. Please don't support tonymacx86.com!\n", versionString->getCStringNoCopy());
@@ -2055,8 +2066,18 @@ void LucyRTL8125::setLinkUp()
         pollParams.highThresholdBytes = 0x10000;
         
         if (speed == SPEED_2500)
-            //pollParams.pollIntervalTime = 150000 - ((kMaxMtu - mtu) * 4);   /* 120-150µs */
-            pollParams.pollIntervalTime = 140000;   /* 140µs */
+            if (pollInterval2500) {
+                /*
+                 * Use fixed polling interval taken from usPollInt2500.
+                 */
+                pollParams.pollIntervalTime = pollInterval2500;
+            } else {
+                /*
+                 * Setting usPollInt2500 to 0 enables use of an
+                 * adaptive polling interval based on mtu vale.
+                 */
+                pollParams.pollIntervalTime = ((mtu * 100) / 20) + 135000;
+            }
         else if (speed == SPEED_1000)
             pollParams.pollIntervalTime = 170000;   /* 170µs */
         else
