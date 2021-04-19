@@ -665,11 +665,12 @@ void LucyRTL8125::setupRTL8125(UInt16 newIntrMitigate, bool enableInterrupts)
         rtl8125_mac_ocp_write(tp, 0xC142, 0xFFFF);
 
         /*
-         * Enable the new tx descriptor format.
+         * Disabling the new tx descriptor format seems to prevent
+         * tx timeouts when using TSO.
          */
         mac_ocp_data = rtl8125_mac_ocp_read(tp, 0xEB58);
-        mac_ocp_data |= (BIT_0);
-        //mac_ocp_data &= ~(BIT_0);
+        //mac_ocp_data |= (BIT_0);
+        mac_ocp_data &= ~(BIT_0);
         rtl8125_mac_ocp_write(tp, 0xEB58, mac_ocp_data);
 
         mac_ocp_data = rtl8125_mac_ocp_read(tp, 0xE614);
