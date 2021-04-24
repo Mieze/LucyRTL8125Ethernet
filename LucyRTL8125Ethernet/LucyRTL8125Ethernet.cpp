@@ -68,7 +68,7 @@ bool LucyRTL8125::init(OSDictionary *properties)
         
         mtu = ETH_DATA_LEN;
         powerState = 0;
-        speed = SPEED_1000;
+        speed = 0;
         duplex = DUPLEX_FULL;
         autoneg = AUTONEG_ENABLE;
         flowCtl = kFlowControlOff;
@@ -819,6 +819,7 @@ IOReturn LucyRTL8125::selectMedium(const IONetworkMedium *medium)
     DebugLog("selectMedium() ===>\n");
     
     if (medium) {
+        autoneg = AUTONEG_DISABLE;
         flowCtl = kFlowControlOff;
         linuxData.eee_adv_t = 0;
         
@@ -831,58 +832,49 @@ IOReturn LucyRTL8125::selectMedium(const IONetworkMedium *medium)
                 break;
                 
             case MEDIUM_INDEX_10HD:
-                autoneg = AUTONEG_DISABLE;
                 speed = SPEED_10;
                 duplex = DUPLEX_HALF;
                 break;
                 
             case MEDIUM_INDEX_10FD:
-                autoneg = AUTONEG_ENABLE;
                 speed = SPEED_10;
                 duplex = DUPLEX_FULL;
                 break;
                 
             case MEDIUM_INDEX_100HD:
-                autoneg = AUTONEG_DISABLE;
                 speed = SPEED_100;
                 duplex = DUPLEX_HALF;
                 break;
                 
             case MEDIUM_INDEX_100FD:
-                autoneg = AUTONEG_ENABLE;
                 speed = SPEED_100;
                 duplex = DUPLEX_FULL;
                 break;
                 
             case MEDIUM_INDEX_100FDFC:
-                autoneg = AUTONEG_ENABLE;
                 speed = SPEED_100;
                 duplex = DUPLEX_FULL;
                 flowCtl = kFlowControlOn;
                 break;
                 
             case MEDIUM_INDEX_1000FD:
-                autoneg = AUTONEG_ENABLE;
                 speed = SPEED_1000;
                 duplex = DUPLEX_FULL;
                 break;
                 
             case MEDIUM_INDEX_1000FDFC:
-                autoneg = AUTONEG_ENABLE;
                 speed = SPEED_1000;
                 duplex = DUPLEX_FULL;
                 flowCtl = kFlowControlOn;
                 break;
                 
             case MEDIUM_INDEX_100FDEEE:
-                autoneg = AUTONEG_ENABLE;
                 speed = SPEED_100;
                 duplex = DUPLEX_FULL;
                 linuxData.eee_adv_t = eeeCap;
                 break;
                 
             case MEDIUM_INDEX_100FDFCEEE:
-                autoneg = AUTONEG_ENABLE;
                 speed = SPEED_100;
                 duplex = DUPLEX_FULL;
                 flowCtl = kFlowControlOn;
@@ -890,14 +882,12 @@ IOReturn LucyRTL8125::selectMedium(const IONetworkMedium *medium)
                 break;
                 
             case MEDIUM_INDEX_1000FDEEE:
-                autoneg = AUTONEG_ENABLE;
                 speed = SPEED_1000;
                 duplex = DUPLEX_FULL;
                 linuxData.eee_adv_t = eeeCap;
                 break;
                 
             case MEDIUM_INDEX_1000FDFCEEE:
-                autoneg = AUTONEG_ENABLE;
                 speed = SPEED_1000;
                 duplex = DUPLEX_FULL;
                 flowCtl = kFlowControlOn;
@@ -905,13 +895,11 @@ IOReturn LucyRTL8125::selectMedium(const IONetworkMedium *medium)
                 break;
                 
             case MEDIUM_INDEX_2500FD:
-                autoneg = AUTONEG_ENABLE;
                 speed = SPEED_2500;
                 duplex = DUPLEX_FULL;
                 break;
                 
             case MEDIUM_INDEX_2500FDFC:
-                autoneg = AUTONEG_ENABLE;
                 speed = SPEED_2500;
                 duplex = DUPLEX_FULL;
                 flowCtl = kFlowControlOn;
@@ -1735,7 +1723,6 @@ void LucyRTL8125::checkLinkStatus()
         /* Stop watchdog and statistics updates. */
         timerSource->cancelTimeout();
         setLinkDown();
-        
     }
 }
 
@@ -1947,9 +1934,9 @@ static const char *speed25GName = "2.5 Gigabit";
 static const char *speed1GName = "1 Gigabit";
 static const char *speed100MName = "100 Megabit";
 static const char *speed10MName = "10 Megabit";
-static const char *duplexFullName = "Full-duplex";
-static const char *duplexHalfName = "Half-duplex";
-static const char *offFlowName = "No flow-control";
+static const char *duplexFullName = "full-duplex";
+static const char *duplexHalfName = "half-duplex";
+static const char *offFlowName = "no flow-control";
 static const char *onFlowName = "flow-control";
 
 static const char* eeeNames[kEEETypeCount] = {
@@ -2138,7 +2125,7 @@ void LucyRTL8125::updateStatitics()
         etherStats->dot3TxExtraEntry.underruns = OSSwapLittleToHostInt16(statData->txUnderun);
     }
     /* Some chips are unable to dump the tally counter while the receiver is disabled. */
-    if (ReadReg8(ChipCmd) & CmdRxEnb) {
+    if (linkUp && (ReadReg8(ChipCmd) & CmdRxEnb)) {
         WriteReg32(CounterAddrHigh, (statPhyAddr >> 32));
         cmd = (statPhyAddr & 0x00000000ffffffff);
         WriteReg32(CounterAddrLow, cmd);
@@ -2149,15 +2136,15 @@ void LucyRTL8125::updateStatitics()
 
 void LucyRTL8125::timerActionRTL8125(IOTimerEventSource *timer)
 {
+    updateStatitics();
+
     if (!linkUp) {
-        DebugLog("Timer fired while link down.\n");
         goto done;
     }
     /* Check for tx deadlock. */
     if (checkForDeadlock())
         goto done;
     
-    updateStatitics();
     timerSource->setTimeoutMS(kTimeoutMS);
         
 done:

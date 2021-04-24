@@ -428,13 +428,6 @@ bool LucyRTL8125::initRTL8125()
     /* Set wake on LAN support. */
     wolCapable = (tp->wol_enabled == WOL_ENABLED);
 
-    //rtl8125_link_option((u8*)&autoneg_mode, (u32*)&speed_mode, (u8*)&duplex_mode, (u32*)&advertising_mode);
-/*
-    tp->autoneg = autoneg_mode;
-    tp->speed = speed_mode;
-    tp->duplex = duplex_mode;
-    tp->advertising = advertising_mode;
-*/
     //tp->eee_enabled = eee_enable;
     tp->eee_adv_t = MDIO_EEE_1000T | MDIO_EEE_100TX;
     
@@ -869,13 +862,11 @@ void LucyRTL8125::setPhyMedium()
     int auto_nego = 0;
     int giga_ctrl = 0;
     int ctrl_2500 = 0;
-    int use_default = 0;
     
     if (speed != SPEED_2500 && (speed != SPEED_1000) &&
         (speed != SPEED_100) && (speed != SPEED_10)) {
         duplex = DUPLEX_FULL;
         autoneg = AUTONEG_ENABLE;
-        use_default = 1;
     }
     /* Enable or disable EEE support according to selected medium. */
     if ((linuxData.eee_adv_t != 0) && (autoneg == AUTONEG_ENABLE)) {
@@ -891,70 +882,58 @@ void LucyRTL8125::setPhyMedium()
 
     giga_ctrl = rtl8125_mdio_read(tp, MII_CTRL1000);
     giga_ctrl &= ~(ADVERTISE_1000HALF | ADVERTISE_1000FULL);
+    
     ctrl_2500 = mdio_direct_read_phy_ocp(tp, 0xA5D4);
     ctrl_2500 &= ~(RTK_ADVERTISE_2500FULL);
+    
+    auto_nego = rtl8125_mdio_read(tp, MII_ADVERTISE);
+    auto_nego &= ~(ADVERTISE_10HALF | ADVERTISE_10FULL |
+                   ADVERTISE_100HALF | ADVERTISE_100FULL |
+                   ADVERTISE_PAUSE_CAP | ADVERTISE_PAUSE_ASYM);
 
     if (autoneg == AUTONEG_ENABLE) {
-        /*n-way force*/
-        auto_nego = rtl8125_mdio_read(tp, MII_ADVERTISE);
-        auto_nego &= ~(ADVERTISE_10HALF | ADVERTISE_10FULL |
-                       ADVERTISE_100HALF | ADVERTISE_100FULL |
-                       ADVERTISE_PAUSE_CAP | ADVERTISE_PAUSE_ASYM);
-
-        if (use_default) {
-            /* The default medium has been selected. */
-            speed = SPEED_1000;
-
-            auto_nego |= (ADVERTISE_10HALF | ADVERTISE_10FULL | ADVERTISE_100HALF | ADVERTISE_100FULL);
+        /* The default medium has been selected. */
+        auto_nego |= (ADVERTISE_10HALF | ADVERTISE_10FULL | ADVERTISE_100HALF | ADVERTISE_100FULL);
+        giga_ctrl |= ADVERTISE_1000FULL;
+        ctrl_2500 |= RTK_ADVERTISE_2500FULL;
+    } else if (speed == SPEED_2500) {
+        ctrl_2500 |= RTK_ADVERTISE_2500FULL;
+    } else if (speed == SPEED_1000) {
+        if (duplex == DUPLEX_HALF) {
+            giga_ctrl |= ADVERTISE_1000HALF;
+        } else {
             giga_ctrl |= ADVERTISE_1000FULL;
-            //ctrl_2500 |= RTK_ADVERTISE_2500FULL;
-        } else if (speed == SPEED_2500) {
-            ctrl_2500 |= RTK_ADVERTISE_2500FULL;
-        } else if (speed == SPEED_1000) {
-            if (duplex == DUPLEX_HALF) {
-                giga_ctrl |= ADVERTISE_1000HALF;
-            } else {
-                giga_ctrl |= ADVERTISE_1000FULL;
-            }
-        } else if (speed == SPEED_100) {
-            if (duplex == DUPLEX_HALF) {
-                auto_nego |= ADVERTISE_100HALF;
-            } else {
-                auto_nego |=  ADVERTISE_100FULL;
-            }
-        } else { /* speed == SPEED_10 */
-            if (duplex == DUPLEX_HALF) {
-                auto_nego |= ADVERTISE_10HALF;
-            } else {
-                auto_nego |= ADVERTISE_10FULL;
-            }
         }
-        
-        /* Set flow control support. */
-        if (flowCtl == kFlowControlOn)
-            auto_nego |= (ADVERTISE_PAUSE_CAP | ADVERTISE_PAUSE_ASYM);
-
-        tp->phy_auto_nego_reg = auto_nego;
-        tp->phy_1000_ctrl_reg = giga_ctrl;
-
-        tp->phy_2500_ctrl_reg = ctrl_2500;
-
-        rtl8125_mdio_write(tp, 0x1f, 0x0000);
-        rtl8125_mdio_write(tp, MII_ADVERTISE, auto_nego);
-        rtl8125_mdio_write(tp, MII_CTRL1000, giga_ctrl);
-        mdio_direct_write_phy_ocp(tp, 0xA5D4, ctrl_2500);
-        rtl8125_phy_restart_nway(tp);
-        mdelay(20);
-    } else {
-        /*true force*/
-        if (speed == SPEED_10 || speed == SPEED_100 ||
-            (speed == SPEED_1000 && duplex == DUPLEX_FULL &&
-             tp->HwSuppGigaForceMode)) {
-                rtl8125_phy_setup_force_mode(tp, speed, duplex);
+    } else if (speed == SPEED_100) {
+        if (duplex == DUPLEX_HALF) {
+            auto_nego |= ADVERTISE_100HALF;
+        } else {
+            auto_nego |=  ADVERTISE_100FULL;
+        }
+    } else { /* speed == SPEED_10 */
+        if (duplex == DUPLEX_HALF) {
+            auto_nego |= ADVERTISE_10HALF;
+        } else {
+            auto_nego |= ADVERTISE_10FULL;
         }
     }
+    /* Set flow control support. */
+    if (flowCtl == kFlowControlOn)
+        auto_nego |= (ADVERTISE_PAUSE_CAP | ADVERTISE_PAUSE_ASYM);
 
-    tp->autoneg = autoneg;
+    tp->phy_auto_nego_reg = auto_nego;
+    tp->phy_1000_ctrl_reg = giga_ctrl;
+
+    tp->phy_2500_ctrl_reg = ctrl_2500;
+
+    rtl8125_mdio_write(tp, 0x1f, 0x0000);
+    rtl8125_mdio_write(tp, MII_ADVERTISE, auto_nego);
+    rtl8125_mdio_write(tp, MII_CTRL1000, giga_ctrl);
+    mdio_direct_write_phy_ocp(tp, 0xA5D4, ctrl_2500);
+    rtl8125_phy_restart_nway(tp);
+    mdelay(20);
+
+    tp->autoneg = AUTONEG_ENABLE;
     tp->speed = speed;
     tp->duplex = duplex;
 }
