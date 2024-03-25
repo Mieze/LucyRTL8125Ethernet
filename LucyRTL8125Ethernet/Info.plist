@@ -15,11 +15,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>$MODULE_VERSION</string>
-	<key>CFBundleVersion</key>
-	<string>$MODULE_VERSION</string>
+	<string>$(MARKETING_VERSION)</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>LucyRTL8125</key>
@@ -41,9 +41,9 @@
 				<key>fallbackMAC</key>
 				<string></string>
 				<key>usPollInt2500</key>
-				<integer>0</integer>
+				<integer>110</integer>
 			</dict>
-			<key>Driver_Version</key>
+			<key>Driver Version</key>
 			<string>$MODULE_VERSION</string>
 			<key>IOClass</key>
 			<string>LucyRTL8125</string>

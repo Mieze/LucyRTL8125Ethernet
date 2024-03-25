@@ -18,6 +18,8 @@
 * This driver is based on Realtek's r8125 Linux driver (9.003.04).
 */
 
+#include <IOKit/IODMACommand.h>
+
 #include "LucyRTL8125Linux-900501.hpp"
 
 #ifdef DEBUG
@@ -76,6 +78,61 @@ enum {
     kEEETypeCount
 };
 
+#define kMacHdrLen      14
+#define kIPv4HdrLen     20
+#define kIPv6HdrLen     40
+
+struct ip4_hdr_be {
+    UInt8 hdr_len;
+    UInt8 tos;
+    UInt16 tot_len;
+    UInt16 id;
+    UInt16 frg_off;
+    UInt8 ttl;
+    UInt8 prot;
+    UInt16 csum;
+    UInt16 addr[4];
+};
+
+struct ip6_hdr_be {
+    UInt32 vtc_fl;
+    UInt16 pay_len;
+    UInt8 nxt_hdr;
+    UInt8 hop_l;
+    UInt16 addr[16];
+};
+
+struct tcp_hdr_be {
+    UInt16 src_prt;
+    UInt16 dst_prt;
+    UInt32 seq_num;
+    UInt32 ack_num;
+    UInt8 dat_off;
+    UInt8 flags;
+    UInt16 wnd;
+    UInt16 csum;
+    UInt16 uptr;
+};
+
+
+enum RtlStateFlags {
+    __ENABLED = 0,      /* driver is enabled */
+    __LINK_UP = 1,      /* link is up */
+    __PROMISC = 2,      /* promiscuous mode enabled */
+    __M_CAST = 3,       /* multicast mode enabled */
+    __POLL_MODE = 4,    /* poll mode is active */
+    __POLLING = 5,      /* poll routine is polling */
+};
+
+enum RtlStateMask {
+    __ENABLED_M = (1 << __ENABLED),
+    __LINK_UP_M = (1 << __LINK_UP),
+    __PROMISC_M = (1 << __PROMISC),
+    __M_CAST_M = (1 << __M_CAST),
+    __POLL_MODE_M = (1 << __POLL_MODE),
+    __POLLING_M = (1 << __POLLING),
+};
+
 /* RTL8125's Rx descriptor. */
 typedef struct RtlRxDesc {
     UInt32 opts1;
@@ -118,7 +175,7 @@ typedef struct RtlStatData {
 
 /* The number of descriptors must be a power of 2. */
 #define kNumTxDesc    1024    /* Number of Tx descriptors */
-#define kNumRxDesc    512     /* Number of Rx descriptors */
+#define kNumRxDesc    512    /* Number of Rx descriptors */
 #define kTxLastDesc    (kNumTxDesc - 1)
 #define kRxLastDesc    (kNumRxDesc - 1)
 #define kTxDescMask    (kNumTxDesc - 1)
@@ -127,7 +184,7 @@ typedef struct RtlStatData {
 #define kRxDescSize    (kNumRxDesc*sizeof(struct RtlRxDesc))
 
 /* This is the receive buffer size (must be large enough to hold a packet). */
-#define kRxBufferPktSize    2048
+#define kRxBufferPktSize    4096
 #define kRxNumSpareMbufs    100
 #define kMCFilterLimit  32
 #define kMaxMtu 9000
@@ -140,17 +197,11 @@ typedef struct RtlStatData {
 #define kFastIntrTreshhold 200000
 
 /* Treshhold value to wake a stalled queue */
-#define kTxQueueWakeTreshhold (kNumTxDesc / 3)
+#define kTxQueueWakeTreshhold (kNumTxDesc / 8)
 
 /* transmitter deadlock treshhold in seconds. */
 #define kTxDeadlockTreshhold 6
 #define kTxCheckTreshhold (kTxDeadlockTreshhold - 1)
-
-/* IPv4 specific stuff */
-#define kMinL4HdrOffsetV4 34
-
-/* IPv6 specific stuff */
-#define kMinL4HdrOffsetV6 54
 
 /* MSS value position */
 #define MSSShift_8125 18
@@ -192,7 +243,7 @@ enum
 #define kEnableTSO6Name "enableTSO6"
 #define kPollInt2500Name "usPollInt2500"
 #define kDisableASPMName "disableASPM"
-#define kDriverVersionName "Driver_Version"
+#define kDriverVersionName "Driver Version"
 #define kFallbackName "fallbackMAC"
 #define kNameLenght 64
 
@@ -266,24 +317,25 @@ private:
     void interruptOccurredPoll(OSObject *client, IOInterruptEventSource *src, int count);
     UInt32 rxInterrupt(IONetworkInterface *interface, uint32_t maxCount, IOMbufQueue *pollQueue, void *context);
 
-    bool setupDMADescriptors();
-    void freeDMADescriptors();
-    void clearDescriptors();
+    bool setupRxResources();
+    bool setupTxResources();
+    bool setupStatResources();
+    void freeRxResources();
+    void freeTxResources();
+    void freeStatResources();
+    void clearRxTxRings();
     void checkLinkStatus();
     void updateStatitics();
     void setLinkUp();
     void setLinkDown();
     bool checkForDeadlock();
 
-    /* Jumbo frame support methods */
-    void discardPacketFragment();
-
     /* Hardware initialization methods. */
     IOReturn identifyChip();
     bool initRTL8125();
     void enableRTL8125();
     void disableRTL8125();
-    void setupRTL8125(UInt16 newIntrMitigate, bool enableInterrupts);
+    void setupRTL8125();
     void setOffset79(UInt8 setting);
     void restartRTL8125();
     void setPhyMedium();
@@ -304,9 +356,6 @@ private:
     void configPhyHardware8125b2();
 
     /* Descriptor related methods. */
-    inline void getChecksumCommand(UInt32 *cmd1, UInt32 *cmd2, mbuf_csum_request_flags_t checksums);
-    inline void getTso4Command(UInt32 *cmd1, UInt32 *cmd2, UInt32 mssValue, mbuf_tso_request_flags_t tsoFlags);
-    inline void getTso6Command(UInt32 *cmd1, UInt32 *cmd2, UInt32 mssValue, mbuf_tso_request_flags_t tsoFlags);
     inline void getChecksumResult(mbuf_t m, UInt32 status1, UInt32 status2);
     
     /* Watchdog timer method. */
@@ -329,6 +378,7 @@ private:
     /* transmitter data */
     IOBufferMemoryDescriptor *txBufDesc;
     IOPhysicalAddress64 txPhyAddr;
+    IODMACommand *txDescDmaCmd;
     struct RtlTxDesc *txDescArray;
     IOMbufNaturalMemoryCursor *txMbufCursor;
     UInt64 txDescDoneCount;
@@ -342,11 +392,9 @@ private:
     /* receiver data */
     IOBufferMemoryDescriptor *rxBufDesc;
     IOPhysicalAddress64 rxPhyAddr;
+    IODMACommand *rxDescDmaCmd;
     struct RtlRxDesc *rxDescArray;
     IOMbufNaturalMemoryCursor *rxMbufCursor;
-    mbuf_t rxPacketHead;
-    mbuf_t rxPacketTail;
-    UInt32 rxPacketSize;
     UInt64 multicastFilter;
     UInt32 rxNextDescIndex;
     UInt32 rxConfigReg;
@@ -361,6 +409,7 @@ private:
     IOEthernetStats *etherStats;
     IOBufferMemoryDescriptor *statBufDesc;
     IOPhysicalAddress64 statPhyAddr;
+    IODMACommand *statDescDmaCmd;
     struct RtlStatData *statData;
 
     UInt32 mtu;
@@ -376,23 +425,22 @@ private:
     struct IOEthernetAddress origMacAddr;
     struct IOEthernetAddress fallBackMacAddr;
 
-    UInt64 lastIntrTime;
     UInt32 intrMask;
     UInt32 pollInterval2500;
-    UInt16 intrMitigateValue;
+    UInt32 intrMaskRxTx;
+    UInt32 intrMaskPoll;
+
     
-    UInt16 intrMaskRxTx;
-    UInt16 intrMaskPoll;
+    /* flags */
+    UInt32 stateFlags;
 
-    IONetworkPacketPollingParameters pollParams;
-
-    bool polling;
+    //bool polling;
 
     /* flags */
-    bool isEnabled;
-    bool promiscusMode;
-    bool multicastMode;
-    bool linkUp;
+    //bool isEnabled;
+    //bool promiscusMode;
+    //bool multicastMode;
+    //bool linkUp;
     
     bool needsUpdate;
     bool wolCapable;
@@ -406,4 +454,7 @@ private:
     /* mbuf_t arrays */
     mbuf_t txMbufArray[kNumTxDesc];
     mbuf_t rxMbufArray[kNumRxDesc];
+    
+    UInt32 lastRxIntrupts;
+    UInt32 lastTxIntrupts;
 };

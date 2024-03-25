@@ -283,6 +283,17 @@ bool LucyRTL8125::initRTL8125()
     tp->org_pci_offset_80 = pciDevice->configRead8(0x80);
     tp->org_pci_offset_81 = pciDevice->configRead8(0x81);
     tp->use_timer_interrrupt = FALSE;
+/*
+    switch (tp->mcfg) {
+        case CFG_METHOD_2:
+        case CFG_METHOD_3:
+        case CFG_METHOD_4:
+        case CFG_METHOD_5:
+        default:
+            tp->use_timer_interrrupt = TRUE;
+            break;
+    }
+*/
 
     switch (tp->mcfg) {
         case CFG_METHOD_2:
@@ -504,7 +515,7 @@ void LucyRTL8125::enableRTL8125()
     setLinkStatus(kIONetworkLinkValid);
     
     intrMask = intrMaskRxTx;
-    polling = false;
+    clear_bit(__POLL_MODE, &stateFlags);
     
     exitOOB();
     rtl8125_hw_init(tp);
@@ -512,7 +523,7 @@ void LucyRTL8125::enableRTL8125()
     rtl8125_powerup_pll(tp);
     rtl8125_hw_ephy_config(tp);
     configPhyHardware();
-    setupRTL8125(intrMitigateValue, true);
+    setupRTL8125();
     
     setPhyMedium();
 }
@@ -529,8 +540,7 @@ void LucyRTL8125::disableRTL8125()
     hardwareD3Para();
     powerDownPLL();
     
-    if (linkUp) {
-        linkUp = false;
+    if (test_and_clear_bit(__LINK_UP, &stateFlags)) {
         setLinkStatus(kIONetworkLinkValid);
         IOLog("Link down on en%u\n", netif->getUnitNumber());
     }
@@ -547,7 +557,7 @@ void LucyRTL8125::restartRTL8125()
     netif->stopOutputThread();
     netif->flushOutputQueue();
     
-    linkUp = false;
+    clear_bit(__LINK_UP, &stateFlags);
     setLinkStatus(kIONetworkLinkValid);
     
     /* Reset NIC and cleanup both descriptor rings. */
@@ -556,13 +566,13 @@ void LucyRTL8125::restartRTL8125()
     if (rxInterrupt(netif, kNumRxDesc, NULL, NULL))
         netif->flushInputQueue();
 */
-    clearDescriptors();
+    clearRxTxRings();
 
     /* Reinitialize NIC. */
     enableRTL8125();
 }
 
-void LucyRTL8125::setupRTL8125(UInt16 newIntrMitigate, bool enableInterrupts)
+void LucyRTL8125::setupRTL8125()
 {
     struct rtl8125_private *tp = &linuxData;
     UInt32 i;
@@ -819,13 +829,16 @@ void LucyRTL8125::setupRTL8125(UInt16 newIntrMitigate, bool enableInterrupts)
         }
         break;
     }
-    /* Needs further investigation if mtu + 18 or mtu + 22 should be used. */
-    WriteReg16(RxMaxSize, mtu + (ETH_HLEN + ETH_FCS_LEN + VLAN_HLEN + 1));
-
+    /*
+     * Make sure that a packet fits into one buffer or there
+     * will be trouble.
+     */
+    WriteReg16(RxMaxSize, kRxBufferPktSize - 1);
+    
     rtl8125_disable_rxdvgate(tp);
 
     /* Set receiver mode. */
-    setMulticastMode(multicastMode);
+    setMulticastMode(test_bit(__M_CAST, &stateFlags));
 
     #ifdef ENABLE_DASH_SUPPORT
             if (tp->DASH && !tp->dash_printer_enabled)
@@ -849,10 +862,9 @@ void LucyRTL8125::setupRTL8125(UInt16 newIntrMitigate, bool enableInterrupts)
 
     WriteReg8(Cfg9346, ReadReg8(Cfg9346) & ~Cfg9346_Unlock);
     
-    if (enableInterrupts) {
-        /* Enable all known interrupts by setting the interrupt mask. */
-        WriteReg32(IMR0_8125, intrMask);
-    }
+    /* Enable all known interrupts by setting the interrupt mask. */
+    WriteReg32(IMR0_8125, intrMask);
+
     udelay(10);
 }
 
@@ -1273,7 +1285,7 @@ void LucyRTL8125::powerDownPLL()
         auto_nego &= ~(ADVERTISE_10HALF | ADVERTISE_10FULL
                        | ADVERTISE_100HALF | ADVERTISE_100FULL);
 
-        if (isEnabled)
+        if (test_bit(__LINK_UP, &stateFlags))
             anlpar = tp->phy_reg_anlpar;
         else
             anlpar = rtl8125_mdio_read(tp, MII_LPA);

@@ -155,36 +155,46 @@ static inline int atomic_inc_and_test(volatile SInt32 * addr)
 #define atomic_inc(v) OSIncrementAtomic(v)
 #define atomic_dec(v) OSDecrementAtomic(v)
 
-static inline int
-test_bit(int nr, const volatile unsigned long *addr)
+static inline bool
+test_mask(unsigned int mask, const volatile unsigned int *addr)
 {
-    return (OSAddAtomic(0, addr) & (1 << nr)) != 0;
+    return ((mask & *addr) == mask);
 }
 
-static inline void
-set_bit(unsigned int nr, volatile unsigned long *addr)
+static inline void clear_mask(unsigned int mask, const volatile unsigned int *addr)
 {
-    OSTestAndSet(nr, (volatile UInt8 *)addr);
-}
-
-static inline void
-clear_bit(unsigned int nr, volatile unsigned long *addr)
-{
-    OSTestAndClear(nr, (volatile UInt8 *)addr);
+    OSBitAndAtomic(~mask, (volatile UInt32 *)addr);
 }
 
 static inline int
-test_and_clear_bit(unsigned int nr, volatile unsigned long *addr)
+test_bit(unsigned int nr, const volatile unsigned int *addr)
 {
-    return !OSTestAndClear(nr, (volatile UInt8 *)addr);
+    return (*addr & (1 << nr));
 }
 
-static inline int
-test_and_set_bit(unsigned int nr, volatile unsigned long *addr)
+static inline void set_bit(unsigned int nr, volatile unsigned int *addr)
 {
-    return OSTestAndSet(nr, (volatile UInt8 *)addr);
+    OSBitOrAtomic((1 << nr), (volatile UInt32 *)addr);
 }
 
+static inline void clear_bit(unsigned int nr, volatile unsigned int *addr)
+{
+    OSBitAndAtomic(~(1 << nr), (volatile UInt32 *)addr);
+}
+
+static inline int test_and_clear_bit(unsigned int nr, volatile unsigned int *addr)
+{
+    unsigned int mask = (1 << nr);
+    
+    return (mask & OSBitAndAtomic(~mask, (volatile UInt32 *)addr));
+}
+
+static inline int test_and_set_bit(unsigned int nr, volatile unsigned int *addr)
+{
+    unsigned int mask = (1 << nr);
+
+    return (mask & OSBitOrAtomic(mask, (volatile UInt32 *)addr));
+}
 /******************************************************************************/
 #pragma mark -
 #pragma mark Read/Write Registers
