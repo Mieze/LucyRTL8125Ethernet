@@ -215,7 +215,7 @@ bool LucyRTL8125::initEventSources(IOService *provider)
     if (msiIndex != -1) {
         DebugLog("MSI interrupt index: %d\n", msiIndex);
         
-        interruptSource = IOInterruptEventSource::interruptEventSource(this, OSMemberFunctionCast(IOInterruptEventSource::Action, this, &LucyRTL8125::interruptOccurredPoll), provider, msiIndex);
+        interruptSource = IOInterruptEventSource::interruptEventSource(this, OSMemberFunctionCast(IOInterruptEventSource::Action, this, &LucyRTL8125::interruptHandler), provider, msiIndex);
     }
     if (!interruptSource) {
         IOLog("Error: MSI index was not found or MSI interrupt could not be enabled.\n");

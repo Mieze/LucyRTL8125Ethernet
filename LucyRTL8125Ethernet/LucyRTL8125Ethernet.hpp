@@ -314,7 +314,7 @@ private:
     void pciErrorInterrupt();
     void txInterrupt();
     
-    void interruptOccurredPoll(OSObject *client, IOInterruptEventSource *src, int count);
+    void interruptHandler(OSObject *client, IOInterruptEventSource *src, int count);
     UInt32 rxInterrupt(IONetworkInterface *interface, uint32_t maxCount, IOMbufQueue *pollQueue, void *context);
 
     bool setupRxResources();
@@ -428,6 +428,7 @@ private:
     UInt32 intrMask;
     UInt32 pollInterval2500;
     UInt32 intrMaskRxTx;
+    UInt32 intrMaskTimer;
     UInt32 intrMaskPoll;
 
     
@@ -455,6 +456,9 @@ private:
     mbuf_t txMbufArray[kNumTxDesc];
     mbuf_t rxMbufArray[kNumRxDesc];
     
+    UInt32 tmrInterrupts;
     UInt32 lastRxIntrupts;
     UInt32 lastTxIntrupts;
+    UInt32 lastTmrIntrupts;
+    SInt32 keepIntrCnt;
 };

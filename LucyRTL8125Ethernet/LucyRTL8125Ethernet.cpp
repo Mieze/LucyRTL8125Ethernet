@@ -87,7 +87,7 @@ bool LucyRTL8125::init(OSDictionary *properties)
         pciPMCtrlOffset = 0;
         memset(fallBackMacAddr.bytes, 0, kIOEthernetAddressSize);
         
-        lastRxIntrupts = lastTxIntrupts = 0;
+        lastRxIntrupts = lastTxIntrupts = lastTmrIntrupts = tmrInterrupts = 0;
     }
     
 done:
@@ -1261,14 +1261,14 @@ void LucyRTL8125::checkLinkStatus()
     }
 }
 
-void LucyRTL8125::interruptOccurredPoll(OSObject *client, IOInterruptEventSource *src, int count)
+void LucyRTL8125::interruptHandler(OSObject *client, IOInterruptEventSource *src, int count)
 {
     UInt32 packets;
     UInt32 status;
     
     status = ReadReg32(ISR0_8125);
     
-    //DebugLog("interruptOccurredPoll: status = 0x%x.\n", status);
+    //DebugLog("interruptHandler: status = 0x%x.\n", status);
 
     /* hotplug/major error/no more work/shared irq */
     if ((status == 0xFFFFFFFF) || !status)
@@ -1284,7 +1284,7 @@ void LucyRTL8125::interruptOccurredPoll(OSObject *client, IOInterruptEventSource
     if (!test_bit(__POLL_MODE, &stateFlags) &&
         !test_and_set_bit(__POLLING, &stateFlags)) {
         /* Rx interrupt */
-        if (status & (RxOK | RxDescUnavail | RxFIFOOver)) {
+        if (status & (RxOK | RxDescUnavail)) {
             packets = rxInterrupt(netif, kNumRxDesc, NULL, NULL);
             
             if (packets)
@@ -1293,15 +1293,37 @@ void LucyRTL8125::interruptOccurredPoll(OSObject *client, IOInterruptEventSource
             etherStats->dot3RxExtraEntry.interrupts++;
         }
         /* Tx interrupt */
-        if (status & (TxOK | TxErr | TxDescUnavail)) {
+        if (status & (TxOK | RxOK | PCSTimeout)) {
             txInterrupt();
-            etherStats->dot3TxExtraEntry.interrupts++;
+            
+            if (status & TxOK)
+                etherStats->dot3TxExtraEntry.interrupts++;
         }
+        if ((status & (TxOK | RxOK)) || (keepIntrCnt > 0)) {
+            if (status & (TxOK | RxOK))
+                keepIntrCnt = RTK_KEEP_INTERRUPT_COUNT;
+            else
+                keepIntrCnt--;
+            
+            WriteReg32(TIMER_INT0_8125, 0x2600);
+            WriteReg32(TCTR0_8125, 0x2600);
+            intrMask = intrMaskTimer;
+        } else {
+            WriteReg32(TIMER_INT0_8125, 0x0000);
+            keepIntrCnt = 0;
+            intrMask = intrMaskRxTx;
+        }
+        if (status & PCSTimeout)
+            tmrInterrupts++;
+
         clear_bit(__POLLING, &stateFlags);
     }
-    if (status & LinkChg)
+    if (status & LinkChg) {
         checkLinkStatus();
-    
+        WriteReg32(TIMER_INT0_8125, 0x000);
+        keepIntrCnt = 0;
+        intrMask = intrMaskRxTx;
+    }
 done:
     WriteReg32(IMR0_8125, intrMask);
 }
@@ -1640,11 +1662,13 @@ void LucyRTL8125::timerActionRTL8125(IOTimerEventSource *timer)
 {
     UInt32 rxIntr = etherStats->dot3RxExtraEntry.interrupts - lastRxIntrupts;
     UInt32 txIntr = etherStats->dot3TxExtraEntry.interrupts - lastTxIntrupts;
-    
+    UInt32 tmrIntr = tmrInterrupts - lastTmrIntrupts;
+
     lastRxIntrupts = etherStats->dot3RxExtraEntry.interrupts;
     lastTxIntrupts = etherStats->dot3TxExtraEntry.interrupts;
+    lastTmrIntrupts = tmrInterrupts;
     
-    DebugLog("rxIntr/s: %u, txIntr/s: %u\n", rxIntr, txIntr);
+    DebugLog("rxIntr/s: %u, txIntr/s: %u, timerIntr/s: %u\n", rxIntr, txIntr, tmrIntr);
 
     updateStatitics();
 

@@ -162,7 +162,7 @@ IOReturn LucyRTL8125::identifyChip()
             } else {
                 tp->mcfg = CFG_METHOD_3;
                 tp->chipset = 1;
-                tp->HwIcVerUnknown = TRUE;
+                tp->HwIcVerUnknown = true;
             }
             tp->efuse_ver = EFUSE_SUPPORT_V4;
             break;
@@ -177,14 +177,14 @@ IOReturn LucyRTL8125::identifyChip()
             } else {
                 tp->mcfg = CFG_METHOD_5;
                 tp->chipset = 3;
-                tp->HwIcVerUnknown = TRUE;
+                tp->HwIcVerUnknown = true;
             }
             tp->efuse_ver = EFUSE_SUPPORT_V4;
             break;
             
         default:
             tp->mcfg = CFG_METHOD_DEFAULT;
-            tp->HwIcVerUnknown = TRUE;
+            tp->HwIcVerUnknown = true;
             tp->efuse_ver = EFUSE_NOT_SUPPORT;
             result = kIOReturnError;
             break;
@@ -282,7 +282,7 @@ bool LucyRTL8125::initRTL8125()
     }
     tp->org_pci_offset_80 = pciDevice->configRead8(0x80);
     tp->org_pci_offset_81 = pciDevice->configRead8(0x81);
-    tp->use_timer_interrrupt = FALSE;
+    tp->use_timer_interrrupt = true;
 /*
     switch (tp->mcfg) {
         case CFG_METHOD_2:
@@ -290,7 +290,7 @@ bool LucyRTL8125::initRTL8125()
         case CFG_METHOD_4:
         case CFG_METHOD_5:
         default:
-            tp->use_timer_interrrupt = TRUE;
+            tp->use_timer_interrrupt = true;
             break;
     }
 */
@@ -334,7 +334,7 @@ bool LucyRTL8125::initRTL8125()
         case CFG_METHOD_3:
         case CFG_METHOD_4:
         case CFG_METHOD_5:
-            tp->HwSuppGigaForceMode = TRUE;
+            tp->HwSuppGigaForceMode = true;
             break;
     }
     switch (tp->mcfg) {
@@ -346,12 +346,12 @@ bool LucyRTL8125::initRTL8125()
             break;
     }
     if (tp->HwSuppTxNoCloseVer > 0)
-        tp->EnableTxNoClose = TRUE;
+        tp->EnableTxNoClose = true;
 
     switch (tp->mcfg) {
         case CFG_METHOD_2:
         case CFG_METHOD_3:
-            tp->RequireLSOPatch = TRUE;
+            tp->RequireLSOPatch = true;
             break;
     }
 
@@ -371,8 +371,8 @@ bool LucyRTL8125::initRTL8125()
     }
 
     if (tp->HwIcVerUnknown) {
-            tp->NotWrRamCodeToMicroP = TRUE;
-            tp->NotWrMcuPatchCode = TRUE;
+            tp->NotWrRamCodeToMicroP = true;
+            tp->NotWrMcuPatchCode = true;
     }
 
     switch (tp->mcfg) {
@@ -380,7 +380,7 @@ bool LucyRTL8125::initRTL8125()
         if ((rtl8125_mac_ocp_read(tp, 0xD442) & BIT_5) &&
             (mdio_direct_read_phy_ocp(tp, 0xD068) & BIT_1)
             ) {
-                tp->RequirePhyMdiSwapPatch = TRUE;
+                tp->RequirePhyMdiSwapPatch = true;
         }
         break;
     }
@@ -481,9 +481,11 @@ bool LucyRTL8125::initRTL8125()
     
     tp->cp_cmd = (ReadReg16(CPlusCmd) | RxChkSum);
     
-    intrMaskRxTx = (SYSErr | LinkChg | RxDescUnavail | TxErr | TxOK | RxErr | RxOK);
+    intrMaskRxTx = (SYSErr | LinkChg | RxDescUnavail | TxOK | RxOK);
+    intrMaskTimer = (SYSErr | LinkChg | RxDescUnavail | PCSTimeout | RxOK);
     intrMaskPoll = (SYSErr | LinkChg);
     intrMask = intrMaskRxTx;
+    keepIntrCnt = 0;
     
     /* Get the RxConfig parameters. */
     rxConfigReg = rtl_chip_info[tp->chipset].RCR_Cfg;
@@ -864,6 +866,7 @@ void LucyRTL8125::setupRTL8125()
     
     /* Enable all known interrupts by setting the interrupt mask. */
     WriteReg32(IMR0_8125, intrMask);
+    keepIntrCnt = 0;
 
     udelay(10);
 }
