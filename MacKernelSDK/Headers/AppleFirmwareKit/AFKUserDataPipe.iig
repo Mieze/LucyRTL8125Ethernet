@@ -1,0 +1,153 @@
+/*
+ * Copyright (c) 2021 Apple Inc.  All rights reserved.
+ *
+ * This document is the property of Apple Inc.
+ * It is considered confidential and proprietary.
+ *
+ * This document may not be reproduced or transmitted in any form,
+ * in whole or in part, without the express written permission of
+ * Apple Inc.
+ */
+
+#if !__IIG
+#if KERNEL
+#include <AppleFirmwareKit/AFKUserDataPipe_kext.h>
+#endif
+#endif
+
+#ifndef _AFKDriverKit_AFKUserDataPipe_h
+#define _AFKDriverKit_AFKUserDataPipe_h
+
+#include <AFKDriverKit/AFKDriverKitCommon.h>
+#include <AFKDriverKit/AFKUserMemoryDescriptor.iig>
+#include <DriverKit/IODataQueueDispatchSource.iig>
+#include <DriverKit/IOService.iig>
+#include <DriverKit/OSAction.iig>
+
+/*! @define   AFKUserDataPipe
+ *  @abstract An internal class that should not be used.
+ *            This class is internal only, and will be subject
+ *            to constant change.
+ */
+
+#if AFKDKUser
+uint32_t _enqueue_report_opts(endpoint_options options);
+uint32_t _enqueue_command_opts(endpoint_options options);
+uint32_t _enqueue_response_opts(endpoint_options options);
+#endif /* AFKDKUser */
+
+class KERNEL AFKUserDataPipe : public OSObject
+{
+    using super = OSObject;
+
+    virtual AFKUserMemoryDescriptor * prepareBuffer(PayloadBuffer data) LOCALONLY;
+
+public:
+    virtual bool init() override;
+
+    virtual void free() override;
+
+    virtual bool open() LOCALONLY;
+
+    virtual void close(OSActionAbortedHandler handler) LOCALONLY;
+
+    virtual void setReportHandler(ReportBlock reportHandler) LOCALONLY;
+
+    virtual void setCommandHandler(CommandBlock commandHandler) LOCALONLY;
+
+    virtual void setResponseHandler(ResponseBlock responseHandler) LOCALONLY;
+
+    virtual IOReturn enqueueReport(unsigned         packetType,
+                                   uint64_t         timestamp,
+                                   PayloadBuffer    reportBuffer,
+                                   endpoint_options options = 0) LOCALONLY;
+
+    virtual IOReturn enqueueCommand(void           * context,
+                                    unsigned         packetType,
+                                    uint64_t         timestamp,
+                                    PayloadBuffer    commandBuffer,
+                                    PayloadBuffer    responseBuffer,
+                                    endpoint_options options = 0,
+                                    IOService      * forClient = nullptr) LOCALONLY;
+
+    virtual IOReturn enqueueResponse(CommandID        id,
+                                     IOReturn         result,
+                                     uint64_t         timestamp,
+                                     PayloadBuffer    responseBuffer,
+                                     endpoint_options options = 0) LOCALONLY;
+};
+
+class EXTENDS (AFKUserDataPipe) AFKUserDataPipePrivate
+{
+    virtual void HandleReport(uint32_t                  packetType,
+                              uint64_t                  timestamp,
+                              AFKUserMemoryDescriptor * payload,
+                              uint32_t                  options,
+                              OSAction                * action TARGET) LOCAL = 0;
+
+    virtual void _HandleReport(uint32_t                  packetType,
+                               uint64_t                  timestamp,
+                               AFKUserMemoryDescriptor * payload,
+                               uint32_t                  options,
+                               OSAction                * action) LOCAL
+                               TYPE(HandleReport);
+
+    virtual IOReturn SendHandleReportAction(OSAction * action TYPE(HandleReport));
+
+    virtual void HandleCommand(uint64_t                  context,
+                               uint32_t                  packetType,
+                               uint64_t                  timestamp,
+                               AFKUserMemoryDescriptor * payload,
+                               uint32_t                  options,
+                               OSAction                * action TARGET) LOCAL = 0;
+
+    virtual void _HandleCommand(uint64_t                  context,
+                                uint32_t                  packetType,
+                                uint64_t                  timestamp,
+                                AFKUserMemoryDescriptor * payload,
+                                uint32_t                  options,
+                                OSAction                * action) LOCAL
+                                TYPE(HandleCommand);
+
+    virtual IOReturn CompleteHandleCommand(uint64_t   context,
+                                           IOReturn   result,
+                                           OSAction * action TYPE(HandleCommand));
+
+    virtual IOReturn SendHandleCommandAction(OSAction * action TYPE(HandleCommand));
+
+    virtual void HandleResponse(uint64_t                  context,
+                                IOReturn                  result,
+                                uint64_t                  timestamp,
+                                AFKUserMemoryDescriptor * payload,
+                                OSAction                * action TARGET) LOCAL = 0;
+
+    virtual void _HandleResponse(uint64_t                  context,
+                                 IOReturn                  result,
+                                 uint64_t                  timestamp,
+                                 AFKUserMemoryDescriptor * payload,
+                                 OSAction                * action) LOCAL
+                                 TYPE(HandleResponse);
+
+    virtual IOReturn SendHandleResponseAction(OSAction * action TYPE(HandleResponse));
+
+    virtual IOReturn EnqueueReport(unsigned                  packetType,
+                                   uint64_t                  timestamp,
+                                   AFKUserMemoryDescriptor * payload,
+                                   uint32_t                  options) KERNEL;
+
+    virtual IOReturn EnqueueCommand(uint64_t                  context,
+                                    unsigned                  packetType,
+                                    uint64_t                  timestamp,
+                                    AFKUserMemoryDescriptor * payload,
+                                    size_t                    outputPayloadSize,
+                                    uint32_t                  options,
+                                    IOService               * forClient) KERNEL;
+
+    virtual IOReturn EnqueueResponse(uint64_t                  context,
+                                     IOReturn                  result,
+                                     uint64_t                  timestamp,
+                                     AFKUserMemoryDescriptor * payload,
+                                     uint32_t                  options) KERNEL;
+};
+
+#endif /* _AFKDriverKit_AFKUserDataPipe_h */

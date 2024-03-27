@@ -1,0 +1,6 @@
+.DS_Store
+xcshareddata
+xcuserdata
+project.xcworkspace
+DerivedData
+Library/kmod/clang32

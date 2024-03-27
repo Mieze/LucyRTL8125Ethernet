@@ -1,0 +1,80 @@
+/*
+ * Copyright (c) 2021 Apple Inc.  All rights reserved.
+ *
+ * This document is the property of Apple Inc.
+ * It is considered confidential and proprietary.
+ *
+ * This document may not be reproduced or transmitted in any form,
+ * in whole or in part, without the express written permission of
+ * Apple Inc.
+ */
+
+#if !__IIG
+#if KERNEL
+#include <AppleFirmwareKit/AFKUserMemoryDescriptor_kext.h>
+#endif
+#endif
+
+#ifndef _AFKDriverKit_AFKUserMemoryDescriptor_h
+#define _AFKDriverKit_AFKUserMemoryDescriptor_h
+
+#include <AFKDriverKit/AFKDriverKitCommon.h>
+#include <DriverKit/IOBufferMemoryDescriptor.iig>
+
+/*! @class       AFKUserMemoryDescriptor
+ *  @brief       Memory descriptor object for working with an AFKEndpointInterface.
+ *  @classdesign This class is currently nothing but a wrapper for an IOBufferMemoryDescriptor.
+ *               Functions may be altered in the future, or new functions may be added to
+ *               provide better functionality and efficiency by leveraging the AFK framework.
+ */
+class KERNEL AFKUserMemoryDescriptor : public OSObject
+{
+    using super = OSObject;
+
+public:
+    // Overridden functions, see IOService documentation for usage
+    virtual bool init() override;
+    virtual void free() override;
+
+    /*!
+     * @function createBuffer
+     * @abstract Create a buffer object.
+     * @param    options Options to specify the request. Currently
+     *           no options are supported. Pass 0 to this parameter.
+     * @param    capacity The desired size of the buffer.
+     * @result   The successfully created and initialized memory buffer
+     *           or NULL if an issue was encountered.
+     */
+    static AFKUserMemoryDescriptor * createBuffer(buffer_options options,
+                                                    uint64_t       capacity) LOCALONLY;
+
+    /*!
+     * @function GetAddressRange
+     * @abstract Retrieve the memory address and length of the data.
+     * @param    range An IOAddressSegment reference that will be filled in with
+     *           the proper address and length of the backing data buffer.
+     * @result   kIOReturnSuccess if successful, otherwise an error code.
+     *           The range parameter should not be trusted if an error is returned.
+     */
+    IOReturn GetAddressRange(IOAddressSegment * range) LOCALONLY;
+
+    /*!
+     * @function SetLength
+     * @abstract Set the valid length of the buffer.
+     * @param    length The length to declare as currently valid. Must be less
+     *           than the initially declared capacity.
+     * @result   kIOReturnSuccess if successful, otherwise an error code.
+     */
+    virtual IOReturn SetLength(uint64_t length) LOCALONLY;
+};
+
+class EXTENDS (AFKUserMemoryDescriptor) AFKUserMemoryDescriptorPrivate
+{
+    static IOReturn Create(uint64_t                     options,
+                           uint64_t                     capacity,
+                           AFKUserMemoryDescriptor ** buff) KERNEL;
+
+    virtual IOReturn RequestBackingBuffer(IOBufferMemoryDescriptor ** backing) KERNEL;
+};
+
+#endif /* _AFKDriverKit_AFKUserMemoryDescriptor_h */
