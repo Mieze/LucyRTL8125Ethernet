@@ -182,9 +182,12 @@ typedef struct RtlStatData {
 #define kRxDescMask    (kNumRxDesc - 1)
 #define kTxDescSize    (kNumTxDesc*sizeof(struct RtlTxDesc))
 #define kRxDescSize    (kNumRxDesc*sizeof(struct RtlRxDesc))
+#define kRxBufArraySize (kNumRxDesc * sizeof(mbuf_t))
+#define kTxBufArraySize (kNumTxDesc * sizeof(mbuf_t))
 
 /* This is the receive buffer size (must be large enough to hold a packet). */
-#define kRxBufferPktSize    4096
+#define kRxBufferSize4K    4096
+#define kRxBufferSize9K    9020
 #define kRxNumSpareMbufs    100
 #define kMCFilterLimit  32
 #define kMaxMtu 9000
@@ -193,11 +196,8 @@ typedef struct RtlStatData {
 /* statitics timer period in ms. */
 #define kTimeoutMS 1000
 
-/* Treshhold value in ns for the modified interrupt sequence. */
-#define kFastIntrTreshhold 200000
-
 /* Treshhold value to wake a stalled queue */
-#define kTxQueueWakeTreshhold (kNumTxDesc / 8)
+#define kTxQueueWakeTreshhold (kNumTxDesc / 10)
 
 /* transmitter deadlock treshhold in seconds. */
 #define kTxDeadlockTreshhold 6
@@ -241,7 +241,7 @@ enum
 #define kEnableCSO6Name "enableCSO6"
 #define kEnableTSO4Name "enableTSO4"
 #define kEnableTSO6Name "enableTSO6"
-#define kPollInt2500Name "usPollInt2500"
+#define kPollInt2500Name "µsPollInt2500"
 #define kDisableASPMName "disableASPM"
 #define kDriverVersionName "Driver Version"
 #define kFallbackName "fallbackMAC"
@@ -310,12 +310,11 @@ private:
     void getParams();
     bool setupMediumDict();
     bool initEventSources(IOService *provider);
-    void interruptOccurred(OSObject *client, IOInterruptEventSource *src, int count);
-    void pciErrorInterrupt();
-    void txInterrupt();
     
     void interruptHandler(OSObject *client, IOInterruptEventSource *src, int count);
     UInt32 rxInterrupt(IONetworkInterface *interface, uint32_t maxCount, IOMbufQueue *pollQueue, void *context);
+    void txInterrupt();
+    void pciErrorInterrupt();
 
     bool setupRxResources();
     bool setupTxResources();
@@ -328,7 +327,7 @@ private:
     void updateStatitics();
     void setLinkUp();
     void setLinkDown();
-    bool checkForDeadlock();
+    bool txHangCheck();
 
     /* Hardware initialization methods. */
     IOReturn identifyChip();
@@ -381,6 +380,8 @@ private:
     IODMACommand *txDescDmaCmd;
     struct RtlTxDesc *txDescArray;
     IOMbufNaturalMemoryCursor *txMbufCursor;
+    mbuf_t *txMbufArray;
+    void *txBufArrayMem;
     UInt64 txDescDoneCount;
     UInt64 txDescDoneLast;
     UInt32 txNextDescIndex;
@@ -395,14 +396,19 @@ private:
     IODMACommand *rxDescDmaCmd;
     struct RtlRxDesc *rxDescArray;
     IOMbufNaturalMemoryCursor *rxMbufCursor;
+    mbuf_t *rxMbufArray;
+    void *rxBufArrayMem;
     UInt64 multicastFilter;
     UInt32 rxNextDescIndex;
+    UInt32 rxBufferSize;
     UInt32 rxConfigReg;
     UInt32 rxConfigMask;
 
     /* power management data */
     unsigned long powerState;
-    
+    IOByteCount pcieCapOffset;
+    IOByteCount pciPMCtrlOffset;
+
     /* statistics data */
     UInt32 deadlockWarn;
     IONetworkStats *netStats;
@@ -425,23 +431,14 @@ private:
     struct IOEthernetAddress origMacAddr;
     struct IOEthernetAddress fallBackMacAddr;
 
-    UInt32 intrMask;
     UInt32 pollInterval2500;
+    UInt32 intrMask;
     UInt32 intrMaskRxTx;
     UInt32 intrMaskTimer;
     UInt32 intrMaskPoll;
 
-    
     /* flags */
     UInt32 stateFlags;
-
-    //bool polling;
-
-    /* flags */
-    //bool isEnabled;
-    //bool promiscusMode;
-    //bool multicastMode;
-    //bool linkUp;
     
     bool needsUpdate;
     bool wolCapable;
@@ -450,15 +447,10 @@ private:
     bool enableTSO6;
     bool enableCSO6;
     
-    UInt8 pciPMCtrlOffset;
-
-    /* mbuf_t arrays */
-    mbuf_t txMbufArray[kNumTxDesc];
-    mbuf_t rxMbufArray[kNumRxDesc];
-    
+#ifdef DEBUG
     UInt32 tmrInterrupts;
     UInt32 lastRxIntrupts;
     UInt32 lastTxIntrupts;
     UInt32 lastTmrIntrupts;
-    SInt32 keepIntrCnt;
+#endif
 };

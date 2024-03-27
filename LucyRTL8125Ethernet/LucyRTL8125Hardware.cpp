@@ -24,12 +24,11 @@
 
 bool LucyRTL8125::initPCIConfigSpace(IOPCIDevice *provider)
 {
+    IOByteCount pmCapOffset;
     UInt32 pcieLinkCap;
     UInt16 pcieLinkCtl;
     UInt16 cmdReg;
     UInt16 pmCap;
-    UInt8 pcieCapOffset;
-    UInt8 pmCapOffset;
     bool result = false;
     
     /* Get vendor and device info. */
@@ -39,7 +38,7 @@ bool LucyRTL8125::initPCIConfigSpace(IOPCIDevice *provider)
     pciDeviceData.subsystem_device = provider->configRead16(kIOPCIConfigSubSystemID);
     
     /* Setup power management. */
-    if (provider->findPCICapability(kIOPCIPowerManagementCapability, &pmCapOffset)) {
+    if (provider->extendedFindPCICapability(kIOPCIPowerManagementCapability, &pmCapOffset)) {
         pmCap = provider->extendedConfigRead16(pmCapOffset + kIOPCIPMCapability);
         DebugLog("PCI power management capabilities: 0x%x.\n", pmCap);
         
@@ -54,7 +53,7 @@ bool LucyRTL8125::initPCIConfigSpace(IOPCIDevice *provider)
     provider->enablePCIPowerManagement(kPCIPMCSPowerStateD0);
     
     /* Get PCIe link information. */
-    if (provider->findPCICapability(kIOPCIPCIExpressCapability, &pcieCapOffset)) {
+    if (provider->extendedFindPCICapability(kIOPCIPCIExpressCapability, &pcieCapOffset)) {
         pcieLinkCap = provider->configRead32(pcieCapOffset + kIOPCIELinkCapability);
         pcieLinkCtl = provider->configRead16(pcieCapOffset + kIOPCIELinkControl);
         DebugLog("PCIe link capabilities: 0x%08x, link control: 0x%04x.\n", pcieLinkCap, pcieLinkCtl);
@@ -485,7 +484,6 @@ bool LucyRTL8125::initRTL8125()
     intrMaskTimer = (SYSErr | LinkChg | RxDescUnavail | PCSTimeout | RxOK);
     intrMaskPoll = (SYSErr | LinkChg);
     intrMask = intrMaskRxTx;
-    keepIntrCnt = 0;
     
     /* Get the RxConfig parameters. */
     rxConfigReg = rtl_chip_info[tp->chipset].RCR_Cfg;
@@ -835,7 +833,7 @@ void LucyRTL8125::setupRTL8125()
      * Make sure that a packet fits into one buffer or there
      * will be trouble.
      */
-    WriteReg16(RxMaxSize, kRxBufferPktSize - 1);
+    WriteReg16(RxMaxSize, rxBufferSize - 1);
     
     rtl8125_disable_rxdvgate(tp);
 
@@ -866,7 +864,6 @@ void LucyRTL8125::setupRTL8125()
     
     /* Enable all known interrupts by setting the interrupt mask. */
     WriteReg32(IMR0_8125, intrMask);
-    keepIntrCnt = 0;
 
     udelay(10);
 }

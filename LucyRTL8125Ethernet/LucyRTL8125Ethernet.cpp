@@ -52,8 +52,11 @@ bool LucyRTL8125::init(OSDictionary *properties)
         etherStats = NULL;
         baseMap = NULL;
         baseAddr = NULL;
+        rxBufferSize = kRxBufferSize4K;
         rxMbufCursor = NULL;
         txMbufCursor = NULL;
+        rxBufArrayMem = NULL;
+        txBufArrayMem = NULL;
         statBufDesc = NULL;
         statPhyAddr = (IOPhysicalAddress64)NULL;
         statData = NULL;
@@ -87,7 +90,9 @@ bool LucyRTL8125::init(OSDictionary *properties)
         pciPMCtrlOffset = 0;
         memset(fallBackMacAddr.bytes, 0, kIOEthernetAddressSize);
         
+#ifdef DEBUG
         lastRxIntrupts = lastTxIntrupts = lastTmrIntrupts = tmrInterrupts = 0;
+#endif
     }
     
 done:
@@ -435,9 +440,9 @@ IOReturn LucyRTL8125::outputStart(IONetworkInterface *interface, IOOptionBits op
     IOReturn result = kIOReturnNoResources;
     UInt32 cmd;
     UInt32 opts2;
-    mbuf_tso_request_flags_t tsoFlags;
-    mbuf_csum_request_flags_t csum;
+    UInt32 offloadFlags;
     UInt32 mss;
+    UInt32 len;
     UInt32 tcpOff;
     UInt32 opts1;
     UInt32 vlanTag;
@@ -456,37 +461,62 @@ IOReturn LucyRTL8125::outputStart(IONetworkInterface *interface, IOOptionBits op
         cmd = 0;
         opts2 = 0;
 
-        if (mbuf_get_tso_requested(m, &tsoFlags, &mss)) {
+        /* Get the packet length. */
+        len = (UInt32)mbuf_pkthdr_len(m);
+
+        if (mbuf_get_tso_requested(m, &offloadFlags, &mss)) {
             DebugLog("mbuf_get_tso_requested() failed. Dropping packet.\n");
             freePacket(m);
             continue;
         }
-        if (tsoFlags & (MBUF_TSO_IPV4 | MBUF_TSO_IPV6)) {
-            if (tsoFlags & MBUF_TSO_IPV4) {
-                prepareTSO4(m, &tcpOff, &mss);
-                
-                cmd = (GiantSendv4 | (tcpOff << GTTCPHO_SHIFT));
-                opts2 = ((mss & MSSMask) << MSSShift_8125);
+        if (offloadFlags & (MBUF_TSO_IPV4 | MBUF_TSO_IPV6)) {
+            if (offloadFlags & MBUF_TSO_IPV4) {
+                if ((len - kMacHdrLen) > mtu) {
+                    /*
+                     * Fix the pseudo header checksum, get the
+                     * TCP header size and set paylen.
+                     */
+                    prepareTSO4(m, &tcpOff, &mss);
+                    
+                    cmd = (GiantSendv4 | (tcpOff << GTTCPHO_SHIFT));
+                    opts2 = ((mss & MSSMask) << MSSShift_8125);
+                } else {
+                    /*
+                     * There is no need for a TSO4 operation as the packet
+                     * can be sent in one frame.
+                     */
+                    offloadFlags = kChecksumTCP;
+                    opts2 = (TxIPCS_C | TxTCPCS_C);
+                }
             } else {
-                /* The pseudoheader checksum has to be adjusted first. */
-                prepareTSO6(m, &tcpOff, &mss);
-                
-                cmd = (GiantSendv6 | (tcpOff << GTTCPHO_SHIFT));
-                opts2 = ((mss & MSSMask) << MSSShift_8125);
+                if ((len - kMacHdrLen) > mtu) {
+                    /* The pseudoheader checksum has to be adjusted first. */
+                    prepareTSO6(m, &tcpOff, &mss);
+                    
+                    cmd = (GiantSendv6 | (tcpOff << GTTCPHO_SHIFT));
+                    opts2 = ((mss & MSSMask) << MSSShift_8125);
+                } else {
+                    /*
+                     * There is no need for a TSO6 operation as the packet
+                     * can be sent in one frame.
+                     */
+                    offloadFlags = kChecksumTCPIPv6;
+                    opts2 = (TxTCPCS_C | TxIPV6F_C | (((kMacHdrLen + kIPv6HdrLen) & TCPHO_MAX) << TCPHO_SHIFT));
+                }
             }
         } else {
             /* We use mss as a dummy here because it isn't needed anymore. */
-            mbuf_get_csum_requested(m, &csum, &mss);
+            mbuf_get_csum_requested(m, &offloadFlags, &mss);
             
-            if (csum & kChecksumTCP)
+            if (offloadFlags & kChecksumTCP)
                 opts2 = (TxIPCS_C | TxTCPCS_C);
-            else if (csum & kChecksumTCPIPv6)
+            else if (offloadFlags & kChecksumTCPIPv6)
                 opts2 = (TxTCPCS_C | TxIPV6F_C | (((kMacHdrLen + kIPv6HdrLen) & TCPHO_MAX) << TCPHO_SHIFT));
-            else if (csum & kChecksumUDP)
+            else if (offloadFlags & kChecksumUDP)
                 opts2 = (TxIPCS_C | TxUDPCS_C);
-            else if (csum & kChecksumUDPIPv6)
+            else if (offloadFlags & kChecksumUDPIPv6)
                 opts2 = (TxUDPCS_C | TxIPV6F_C | (((kMacHdrLen + kIPv6HdrLen) & TCPHO_MAX) << TCPHO_SHIFT));
-            else if (csum & kChecksumIP)
+            else if (offloadFlags & kChecksumIP)
                 opts2 = TxIPCS_C;
         }
         /* Finally get the physical segments. */
@@ -621,21 +651,21 @@ bool LucyRTL8125::configureInterface(IONetworkInterface *interface)
             goto done;
         }
     }
-    error = interface->configureOutputPullModel(512, 0, 0, IONetworkInterface::kOutputPacketSchedulingModelNormal);
+    error = interface->configureOutputPullModel((kNumTxDesc/2), 0, 0, IONetworkInterface::kOutputPacketSchedulingModelNormal);
     
     if (error != kIOReturnSuccess) {
         IOLog("configureOutputPullModel() failed\n.");
         result = false;
         goto done;
     }
-    error = interface->configureInputPacketPolling(kNumRxDesc, kIONetworkWorkLoopSynchronous);
+    error = interface->configureInputPacketPolling(kNumRxDesc, 0);
     
     if (error != kIOReturnSuccess) {
         IOLog("configureInputPacketPolling() failed\n.");
         result = false;
         goto done;
     }
-    snprintf(modelName, kNameLenght, "Realtek %s PCI Express 2.5 Gigabit Ethernet", rtl_chip_info[linuxData.chipset].name);
+    snprintf(modelName, kNameLenght, "Realtek %s PCIe 2.5 Gbit Ethernet", rtl_chip_info[linuxData.chipset].name);
     setProperty("model", modelName);
     
     DebugLog("configureInterface() <===\n");
@@ -965,16 +995,18 @@ done:
     return result;
 }
 
+#pragma mark --- jumbo frame support methods ---
+
 IOReturn LucyRTL8125::getMaxPacketSize(UInt32 * maxSize) const
 {
     DebugLog("getMaxPacketSize() ===>\n");
-    
+        
     if (version_major >= 22) {
         /*
          * Starting with Ventura we can be honest about jumbo
          * frame support.
          */
-        *maxSize = kRxBufferPktSize - 2;
+        *maxSize = rxBufferSize - 2;
     } else {
         /*
          * In case we reported a maximum packet size below 9018
@@ -982,7 +1014,7 @@ IOReturn LucyRTL8125::getMaxPacketSize(UInt32 * maxSize) const
          * to set an MTU above 1500 which would disable jumbo
          * frame support completely. Therefore we fake a maximum
          * packet size of 9018 although trying to set anything
-         * above 4076 in setMaxPacketSize() will fail. This is
+         * above 4094 in setMaxPacketSize() will fail. This is
          * ugly but the only solution.
          */
         *maxSize = kMaxPacketSize;
@@ -996,36 +1028,15 @@ IOReturn LucyRTL8125::getMaxPacketSize(UInt32 * maxSize) const
 
 IOReturn LucyRTL8125::setMaxPacketSize(UInt32 maxSize)
 {
-    ifnet_t ifnet = netif->getIfnet();
-    ifnet_offload_t offload;
-    UInt32 mask = (IFNET_CSUM_IP | IFNET_CSUM_TCP | IFNET_CSUM_UDP);
     IOReturn result = kIOReturnError;
 
     DebugLog("setMaxPacketSize() ===>\n");
     
-    if (maxSize <= (kRxBufferPktSize - 2)) {
+    if (maxSize <= (rxBufferSize - 2)) {
         mtu = maxSize - (ETH_HLEN + ETH_FCS_LEN);
 
         DebugLog("maxSize: %u, mtu: %u\n", maxSize, mtu);
         
-        if (enableTSO4)
-            mask |= IFNET_TSO_IPV4;
-        
-        if (enableTSO6)
-            mask |= IFNET_TSO_IPV6;
-
-        offload = ifnet_offload(ifnet);
-        
-        if (mtu > MSS_MAX) {
-            offload &= ~mask;
-            DebugLog("Disable hardware offload features: %x!\n", mask);
-        } else {
-            offload |= mask;
-            DebugLog("Enable hardware offload features: %x!\n", mask);
-        }
-        if (ifnet_set_offload(ifnet, offload))
-            IOLog("Error setting hardware offload: %x!\n", offload);
-
         /* Force reinitialization. */
         setLinkDown();
         timerSource->cancelTimeout();
@@ -1110,7 +1121,7 @@ UInt32 LucyRTL8125::rxInterrupt(IONetworkInterface *interface, uint32_t maxCount
         if (unlikely((descStatus1 & (FirstFrag|LastFrag)) != (FirstFrag|LastFrag))) {
             DebugLog("Fragmented packet.\n");
             etherStats->dot3StatsEntry.frameTooLongs++;
-            opts1 |= kRxBufferPktSize;
+            opts1 |= rxBufferSize;
             goto nextDesc;
         }
         
@@ -1124,7 +1135,7 @@ UInt32 LucyRTL8125::rxInterrupt(IONetworkInterface *interface, uint32_t maxCount
             if (descStatus1 & RxCRC)
                 etherStats->dot3StatsEntry.fcsErrors++;
 
-            opts1 |= kRxBufferPktSize;
+            opts1 |= rxBufferSize;
             goto nextDesc;
         }
         
@@ -1139,7 +1150,7 @@ UInt32 LucyRTL8125::rxInterrupt(IONetworkInterface *interface, uint32_t maxCount
             /* Allocation of a new packet failed so that we must leave the original packet in place. */
             DebugLog("replaceOrCopyPacket() failed.\n");
             etherStats->dot3RxExtraEntry.resourceErrors++;
-            opts1 |= kRxBufferPktSize;
+            opts1 |= rxBufferSize;
             goto nextDesc;
         }
         
@@ -1149,14 +1160,14 @@ UInt32 LucyRTL8125::rxInterrupt(IONetworkInterface *interface, uint32_t maxCount
                 DebugLog("getPhysicalSegments() failed.\n");
                 etherStats->dot3RxExtraEntry.resourceErrors++;
                 freePacket(bufPkt);
-                opts1 |= kRxBufferPktSize;
+                opts1 |= rxBufferSize;
                 goto nextDesc;
             }
             opts1 |= ((UInt32)rxSegment.length & 0x0000ffff);
             addr = rxSegment.location;
             rxMbufArray[rxNextDescIndex] = bufPkt;
         } else {
-            opts1 |= kRxBufferPktSize;
+            opts1 |= rxBufferSize;
         }
         /* Set the length of the buffer. */
         mbuf_setlen(newPkt, pktSize);
@@ -1299,36 +1310,31 @@ void LucyRTL8125::interruptHandler(OSObject *client, IOInterruptEventSource *src
             if (status & TxOK)
                 etherStats->dot3TxExtraEntry.interrupts++;
         }
-        if ((status & (TxOK | RxOK)) || (keepIntrCnt > 0)) {
-            if (status & (TxOK | RxOK))
-                keepIntrCnt = RTK_KEEP_INTERRUPT_COUNT;
-            else
-                keepIntrCnt--;
-            
-            WriteReg32(TIMER_INT0_8125, 0x2600);
-            WriteReg32(TCTR0_8125, 0x2600);
+        if (status & (TxOK | RxOK)) {
+            WriteReg32(TIMER_INT0_8125, 0x5000);
+            WriteReg32(TCTR0_8125, 0x5000);
             intrMask = intrMaskTimer;
-        } else {
+        } else if (status & PCSTimeout) {
             WriteReg32(TIMER_INT0_8125, 0x0000);
-            keepIntrCnt = 0;
             intrMask = intrMaskRxTx;
         }
+#ifdef DEBUG
         if (status & PCSTimeout)
             tmrInterrupts++;
-
+#endif
+        
         clear_bit(__POLLING, &stateFlags);
     }
     if (status & LinkChg) {
         checkLinkStatus();
         WriteReg32(TIMER_INT0_8125, 0x000);
-        keepIntrCnt = 0;
         intrMask = intrMaskRxTx;
     }
 done:
     WriteReg32(IMR0_8125, intrMask);
 }
 
-bool LucyRTL8125::checkForDeadlock()
+bool LucyRTL8125::txHangCheck()
 {
     bool deadlock = false;
     
@@ -1407,34 +1413,6 @@ void LucyRTL8125::pollInputPackets(IONetworkInterface *interface, uint32_t maxCo
 }
 
 #pragma mark --- hardware specific methods ---
-
-#if 0
-void LucyRTL8125::getChecksumResult(mbuf_t m, UInt32 status1, UInt32 status2)
-{
-    UInt32 resultMask = 0;
-    UInt32 pktType = (status1 & RxProtoMask);
-    
-    /* Get the result of the checksum calculation and store it in the packet. */
-    if (pktType == RxTCPT) {
-        /* TCP packet */
-        if (status2 & RxV4F)
-            resultMask = (status1 & RxTCPF) ? 0 : (kChecksumTCP | kChecksumIP);
-        else if (status2 & RxV6F)
-            resultMask = (status1 & RxTCPF) ? 0 : kChecksumTCPIPv6;
-    } else if (pktType == RxUDPT) {
-        /* UDP packet */
-        if (status2 & RxV4F)
-            resultMask = (status1 & RxUDPF) ? 0 : (kChecksumUDP | kChecksumIP);
-        else if (status2 & RxV6F)
-            resultMask = (status1 & RxUDPF) ? 0 : kChecksumUDPIPv6;
-    } else if ((pktType == 0) && (status2 & RxV4F)) {
-        /* IP packet */
-        resultMask = (status1 & RxIPF) ? 0 : kChecksumIP;
-    }
-    if (resultMask)
-        setChecksumResult(m, kChecksumFamilyTCPIP, resultMask, resultMask);
-}
-#endif
 
 inline void LucyRTL8125::getChecksumResult(mbuf_t m, UInt32 status1, UInt32 status2)
 {
@@ -1577,25 +1555,14 @@ void LucyRTL8125::setLinkUp()
         pParams.highThresholdBytes = 0x10000;
         
         if (speed == SPEED_2500)
-            if (pollInterval2500) {
-                /*
-                 * Use fixed polling interval taken from usPollInt2500.
-                 */
-                pParams.pollIntervalTime = pollInterval2500;
-            } else {
-                /*
-                 * Setting usPollInt2500 to 0 enables use of an
-                 * adaptive polling interval based on mtu vale.
-                 */
-                pParams.pollIntervalTime = ((mtu * 100) / 20) + 135000;
-            }
+            pParams.pollIntervalTime = pollInterval2500;
         else if (speed == SPEED_1000)
             pParams.pollIntervalTime = 170000;   /* 170µs */
         else
             pParams.pollIntervalTime = 1000000;  /* 1ms */
     }
     netif->setPacketPollingParameters(&pParams, 0);
-    DebugLog("pollIntervalTime: %lluus\n", (pParams.pollIntervalTime / 1000));
+    DebugLog("pollIntervalTime: %lluµs\n", (pParams.pollIntervalTime / 1000));
 
     netif->startOutputThread();
 
@@ -1660,6 +1627,7 @@ void LucyRTL8125::updateStatitics()
 
 void LucyRTL8125::timerActionRTL8125(IOTimerEventSource *timer)
 {
+#ifdef DEBUG
     UInt32 rxIntr = etherStats->dot3RxExtraEntry.interrupts - lastRxIntrupts;
     UInt32 txIntr = etherStats->dot3TxExtraEntry.interrupts - lastTxIntrupts;
     UInt32 tmrIntr = tmrInterrupts - lastTmrIntrupts;
@@ -1668,15 +1636,16 @@ void LucyRTL8125::timerActionRTL8125(IOTimerEventSource *timer)
     lastTxIntrupts = etherStats->dot3TxExtraEntry.interrupts;
     lastTmrIntrupts = tmrInterrupts;
     
-    DebugLog("rxIntr/s: %u, txIntr/s: %u, timerIntr/s: %u\n", rxIntr, txIntr, tmrIntr);
-
+    IOLog("rxIntr/s: %u, txIntr/s: %u, timerIntr/s: %u\n", rxIntr, txIntr, tmrIntr);
+#endif
+    
     updateStatitics();
 
     if (!test_bit(__LINK_UP, &stateFlags))
         goto done;
 
     /* Check for tx deadlock. */
-    if (checkForDeadlock())
+    if (txHangCheck())
         goto done;
     
     timerSource->setTimeoutMS(kTimeoutMS);

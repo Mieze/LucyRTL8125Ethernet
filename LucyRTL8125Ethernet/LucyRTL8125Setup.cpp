@@ -78,14 +78,14 @@ void LucyRTL8125::getParams()
         if (pollInt) {
             usInterval = pollInt->unsigned32BitValue();
             
-            if (usInterval > 200)
-                pollInterval2500 = 0;
-            else if (usInterval < 100)
-                pollInterval2500 = 0;
+            if (usInterval > 150)
+                pollInterval2500 = 150000;
+            else if (usInterval < 75)
+                pollInterval2500 = 75000;
             else
                 pollInterval2500 = usInterval * 1000;
         } else {
-            pollInterval2500 = 0;
+            pollInterval2500 = 110000;
         }
         fbAddr = OSDynamicCast(OSString, params->getObject(kFallbackName));
         
@@ -259,12 +259,21 @@ bool LucyRTL8125::setupRxResources()
     UInt32 opts1;
     bool result = false;
     
+    /* Alloc rx mbuf_t array. */
+    rxBufArrayMem = IOMallocZero(kRxBufArraySize);
+    
+    if (!rxBufArrayMem) {
+        IOLog("Couldn't alloc receive buffer array.\n");
+        goto done;
+    }
+    rxMbufArray = (mbuf_t *)rxBufArrayMem;
+
     /* Create receiver descriptor array. */
     rxBufDesc = IOBufferMemoryDescriptor::inTaskWithPhysicalMask(kernel_task, (kIODirectionInOut | kIOMemoryPhysicallyContiguous | kIOMapInhibitCache), kRxDescSize, 0xFFFFFFFFFFFFFF00ULL);
     
     if (!rxBufDesc) {
         IOLog("Couldn't alloc rxBufDesc.\n");
-        goto done;
+        goto error_buff;
     }
     if (rxBufDesc->prepare() != kIOReturnSuccess) {
         IOLog("rxBufDesc->prepare() failed.\n");
@@ -309,7 +318,7 @@ bool LucyRTL8125::setupRxResources()
 
     /* Alloc receive buffers. */
     for (i = 0; i < kNumRxDesc; i++) {
-        m = allocatePacket(kRxBufferPktSize);
+        m = allocatePacket(rxBufferSize);
         
         if (!m) {
             IOLog("Couldn't alloc receive buffer.\n");
@@ -332,7 +341,7 @@ bool LucyRTL8125::setupRxResources()
      * This seems to avoid the replaceOrCopyPacket() errors under heavy load.
      */
     for (i = 0; i < kRxNumSpareMbufs; i++)
-        spareMbuf[i] = allocatePacket(kRxBufferPktSize);
+        spareMbuf[i] = allocatePacket(rxBufferSize);
 
     for (i = 0; i < kRxNumSpareMbufs; i++) {
         if (spareMbuf[i])
@@ -364,6 +373,11 @@ error_dma:
 error_prep:
     RELEASE(rxBufDesc);
 
+error_buff:
+    IOFree(rxBufArrayMem, kRxBufArraySize);
+    rxBufArrayMem = NULL;
+    rxMbufArray = NULL;
+
     goto done;
 }
 
@@ -375,12 +389,21 @@ bool LucyRTL8125::setupTxResources()
     UInt32 i;
     bool result = false;
     
+    /* Alloc tx mbuf_t array. */
+    txBufArrayMem = IOMallocZero(kTxBufArraySize);
+    
+    if (!txBufArrayMem) {
+        IOLog("Couldn't alloc transmit buffer array.\n");
+        goto done;
+    }
+    txMbufArray = (mbuf_t *)txBufArrayMem;
+    
     /* Create transmitter descriptor array. */
     txBufDesc = IOBufferMemoryDescriptor::inTaskWithPhysicalMask(kernel_task, (kIODirectionInOut | kIOMemoryPhysicallyContiguous | kIOMapInhibitCache), kTxDescSize, 0xFFFFFFFFFFFFFF00ULL);
             
     if (!txBufDesc) {
         IOLog("Couldn't alloc txBufDesc.\n");
-        goto done;
+        goto error_buff;
     }
     if (txBufDesc->prepare() != kIOReturnSuccess) {
         IOLog("txBufDesc->prepare() failed.\n");
@@ -439,6 +462,12 @@ error_dma:
 
 error_prep:
     RELEASE(txBufDesc);
+    
+error_buff:
+    IOFree(txBufArrayMem, kTxBufArraySize);
+    txBufArrayMem = NULL;
+    txMbufArray = NULL;
+    
     goto done;
 }
 
@@ -529,6 +558,11 @@ void LucyRTL8125::freeRxResources()
         statPhyAddr = (IOPhysicalAddress64)NULL;
         statData = NULL;
     }
+    if (rxBufArrayMem) {
+        IOFree(txBufArrayMem, kRxBufArraySize);
+        rxBufArrayMem = NULL;
+        rxMbufArray = NULL;
+    }
 }
 
 void LucyRTL8125::freeTxResources()
@@ -543,6 +577,11 @@ void LucyRTL8125::freeTxResources()
         txDescDmaCmd->clearMemoryDescriptor();
         txDescDmaCmd->release();
         txDescDmaCmd = NULL;
+    }
+    if (txBufArrayMem) {
+        IOFree(txBufArrayMem, kTxBufArraySize);
+        txBufArrayMem = NULL;
+        txMbufArray = NULL;
     }
     RELEASE(txMbufCursor);
 }
@@ -587,7 +626,7 @@ void LucyRTL8125::clearRxTxRings()
     lastIndex = kRxLastDesc;
     
     for (i = 0; i < kNumRxDesc; i++) {
-        opts1 = (UInt32)kRxBufferPktSize;
+        opts1 = rxBufferSize;
         opts1 |= (i == kRxLastDesc) ? (RingEnd | DescOwn) : DescOwn;
         rxDescArray[i].opts1 = OSSwapHostToLittleInt32(opts1);
         rxDescArray[i].opts2 = 0;

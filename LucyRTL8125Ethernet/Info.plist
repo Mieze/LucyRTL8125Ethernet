@@ -40,7 +40,7 @@
 				<true/>
 				<key>fallbackMAC</key>
 				<string></string>
-				<key>usPollInt2500</key>
+				<key>µsPollInt2500</key>
 				<integer>110</integer>
 			</dict>
 			<key>Driver Version</key>
