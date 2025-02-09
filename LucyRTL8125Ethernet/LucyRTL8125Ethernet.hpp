@@ -188,7 +188,7 @@ typedef struct RtlStatData {
 /* This is the receive buffer size (must be large enough to hold a packet). */
 #define kRxBufferSize4K    4096
 #define kRxBufferSize9K    9020
-#define kRxNumSpareMbufs    100
+#define kRxNumSpareMbufs    150
 #define kMCFilterLimit  32
 #define kMaxMtu 9000
 #define kMaxPacketSize (kMaxMtu + ETH_HLEN + ETH_FCS_LEN)
@@ -322,6 +322,10 @@ private:
     void freeRxResources();
     void freeTxResources();
     void freeStatResources();
+    void refillSpareBuffers();
+    
+    static IOReturn refillAction(OSObject *owner, void *arg1, void *arg2, void *arg3, void *arg4);
+
     void clearRxTxRings();
     void checkLinkStatus();
     void updateStatitics();
@@ -372,6 +376,7 @@ private:
     IOTimerEventSource *timerSource;
     IOEthernetInterface *netif;
     IOMemoryMap *baseMap;
+    IOMapper *mapper;
     volatile void *baseAddr;
     
     /* transmitter data */
@@ -398,11 +403,14 @@ private:
     IOMbufNaturalMemoryCursor *rxMbufCursor;
     mbuf_t *rxMbufArray;
     void *rxBufArrayMem;
+    mbuf_t sparePktHead;
+    mbuf_t sparePktTail;
     UInt64 multicastFilter;
     UInt32 rxNextDescIndex;
     UInt32 rxBufferSize;
     UInt32 rxConfigReg;
     UInt32 rxConfigMask;
+    SInt32 spareNum;
 
     /* power management data */
     unsigned long powerState;

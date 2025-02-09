@@ -251,7 +251,6 @@ bool LucyRTL8125::setupRxResources()
 {
     IOPhysicalSegment rxSegment;
     IODMACommand::Segment64 seg;
-    mbuf_t spareMbuf[kRxNumSpareMbufs];
     mbuf_t m;
     UInt64 offset = 0;
     UInt32 numSegs = 1;
@@ -269,7 +268,7 @@ bool LucyRTL8125::setupRxResources()
     rxMbufArray = (mbuf_t *)rxBufArrayMem;
 
     /* Create receiver descriptor array. */
-    rxBufDesc = IOBufferMemoryDescriptor::inTaskWithPhysicalMask(kernel_task, (kIODirectionInOut | kIOMemoryPhysicallyContiguous | kIOMapInhibitCache), kRxDescSize, 0xFFFFFFFFFFFFFF00ULL);
+    rxBufDesc = IOBufferMemoryDescriptor::inTaskWithPhysicalMask(kernel_task, (kIODirectionInOut | kIOMemoryPhysicallyContiguous | kIOMemoryHostPhysicallyContiguous | kIOMapInhibitCache), kRxDescSize, 0xFFFFFFFFFFFFFF00ULL);
     
     if (!rxBufDesc) {
         IOLog("Couldn't alloc rxBufDesc.\n");
@@ -281,7 +280,7 @@ bool LucyRTL8125::setupRxResources()
     }
     rxDescArray = (RtlRxDesc *)rxBufDesc->getBytesNoCopy();
 
-    rxDescDmaCmd = IODMACommand::withSpecification(kIODMACommandOutputHost64, 64, 0, IODMACommand::kMapped, 0, 1);
+    rxDescDmaCmd = IODMACommand::withSpecification(kIODMACommandOutputHost64, 64, 0, IODMACommand::kMapped, 0, 1, mapper, NULL);
     
     if (!rxDescDmaCmd) {
         IOLog("Couldn't alloc rxDescDmaCmd.\n");
@@ -336,16 +335,26 @@ bool LucyRTL8125::setupRxResources()
         rxDescArray[i].opts2 = 0;
         rxDescArray[i].addr = OSSwapHostToLittleInt64(rxSegment.location);
     }
-
-    /* Allocate some spare mbufs and free them in order to increase the buffer pool.
-     * This seems to avoid the replaceOrCopyPacket() errors under heavy load.
+    /*
+     * Allocate some spare mbufs and keep them in a buffer pool, to
+     * have them at hand in case replaceOrCopyPacket() fails
+     * under heavy load.
      */
-    for (i = 0; i < kRxNumSpareMbufs; i++)
-        spareMbuf[i] = allocatePacket(rxBufferSize);
+    sparePktHead = sparePktTail = NULL;
 
     for (i = 0; i < kRxNumSpareMbufs; i++) {
-        if (spareMbuf[i])
-            freePacket(spareMbuf[i]);
+        m = allocatePacket(rxBufferSize);
+        
+        if (m) {
+            if (sparePktHead) {
+                mbuf_setnext(sparePktTail, m);
+                sparePktTail = m;
+                spareNum++;
+            } else {
+                sparePktHead = sparePktTail = m;
+                spareNum = 1;
+            }
+        }
     }
     result = true;
     
@@ -381,6 +390,32 @@ error_buff:
     goto done;
 }
 
+void LucyRTL8125::refillSpareBuffers()
+{
+    mbuf_t m;
+
+    while (spareNum < kRxNumSpareMbufs) {
+        m = allocatePacket(rxBufferSize);
+
+        if (!m)
+            break;
+        
+        mbuf_setnext(sparePktTail, m);
+        sparePktTail = m;
+        OSIncrementAtomic(&spareNum);
+    }
+}
+
+IOReturn LucyRTL8125::refillAction(OSObject *owner, void *arg1, void *arg2, void *arg3, void *arg4)
+{
+    LucyRTL8125 *ethCtlr = OSDynamicCast(LucyRTL8125, owner);
+    
+    if (ethCtlr) {
+        ethCtlr->refillSpareBuffers();
+    }
+    return kIOReturnSuccess;
+}
+
 bool LucyRTL8125::setupTxResources()
 {
     IODMACommand::Segment64 seg;
@@ -399,7 +434,7 @@ bool LucyRTL8125::setupTxResources()
     txMbufArray = (mbuf_t *)txBufArrayMem;
     
     /* Create transmitter descriptor array. */
-    txBufDesc = IOBufferMemoryDescriptor::inTaskWithPhysicalMask(kernel_task, (kIODirectionInOut | kIOMemoryPhysicallyContiguous | kIOMapInhibitCache), kTxDescSize, 0xFFFFFFFFFFFFFF00ULL);
+    txBufDesc = IOBufferMemoryDescriptor::inTaskWithPhysicalMask(kernel_task, (kIODirectionInOut | kIOMemoryPhysicallyContiguous | kIOMemoryHostPhysicallyContiguous | kIOMapInhibitCache), kTxDescSize, 0xFFFFFFFFFFFFFF00ULL);
             
     if (!txBufDesc) {
         IOLog("Couldn't alloc txBufDesc.\n");
@@ -411,7 +446,7 @@ bool LucyRTL8125::setupTxResources()
     }
     txDescArray = (RtlTxDesc *)txBufDesc->getBytesNoCopy();
     
-    txDescDmaCmd = IODMACommand::withSpecification(kIODMACommandOutputHost64, 64, 0, IODMACommand::kMapped, 0, 1);
+    txDescDmaCmd = IODMACommand::withSpecification(kIODMACommandOutputHost64, 64, 0, IODMACommand::kMapped, 0, 1, mapper, NULL);
     
     if (!txDescDmaCmd) {
         IOLog("Couldn't alloc txDescDmaCmd.\n");
@@ -479,7 +514,7 @@ bool LucyRTL8125::setupStatResources()
     bool result = false;
 
     /* Create statistics dump buffer. */
-    statBufDesc = IOBufferMemoryDescriptor::inTaskWithPhysicalMask(kernel_task, (kIODirectionIn | kIOMemoryPhysicallyContiguous | kIOMapInhibitCache), sizeof(RtlStatData), 0xFFFFFFFFFFFFFF00ULL);
+    statBufDesc = IOBufferMemoryDescriptor::inTaskWithPhysicalMask(kernel_task, (kIODirectionIn | kIOMemoryPhysicallyContiguous | kIOMemoryHostPhysicallyContiguous | kIOMapInhibitCache), sizeof(RtlStatData), 0xFFFFFFFFFFFFFF00ULL);
     
     if (!statBufDesc) {
         IOLog("Couldn't alloc statBufDesc.\n");
@@ -551,17 +586,20 @@ void LucyRTL8125::freeRxResources()
             rxMbufArray[i] = NULL;
         }
     }
-    if (statBufDesc) {
-        statBufDesc->complete();
-        statBufDesc->release();
-        statBufDesc = NULL;
-        statPhyAddr = (IOPhysicalAddress64)NULL;
-        statData = NULL;
+    if (rxDescDmaCmd) {
+        rxDescDmaCmd->clearMemoryDescriptor();
+        rxDescDmaCmd->release();
+        rxDescDmaCmd = NULL;
     }
     if (rxBufArrayMem) {
         IOFree(txBufArrayMem, kRxBufArraySize);
         rxBufArrayMem = NULL;
         rxMbufArray = NULL;
+    }
+    if (sparePktHead) {
+        mbuf_freem(sparePktHead);
+        sparePktHead = sparePktTail = NULL;
+        spareNum = 0;
     }
 }
 

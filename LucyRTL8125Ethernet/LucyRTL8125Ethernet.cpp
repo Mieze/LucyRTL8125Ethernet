@@ -54,6 +54,9 @@ bool LucyRTL8125::init(OSDictionary *properties)
         baseAddr = NULL;
         rxBufferSize = kRxBufferSize4K;
         rxMbufCursor = NULL;
+        sparePktHead = NULL;
+        sparePktTail = NULL;
+        spareNum = 0;
         txMbufCursor = NULL;
         rxBufArrayMem = NULL;
         txBufArrayMem = NULL;
@@ -163,6 +166,8 @@ bool LucyRTL8125::start(IOService *provider)
         IOLog("Failed to open provider.\n");
         goto error_open;
     }
+    mapper = IOMapper::copyMapperForDevice(pciDevice);
+
     getParams();
     
     if (!initPCIConfigSpace(pciDevice)) {
@@ -182,7 +187,7 @@ bool LucyRTL8125::start(IOService *provider)
     
     if (!commandGate) {
         IOLog("getCommandGate() failed.\n");
-        goto error_cfg;
+        goto error_gate;
     }
     commandGate->retain();
     
@@ -230,6 +235,9 @@ error_dma2:
 error_dma1:
     RELEASE(commandGate);
         
+error_gate:
+    RELEASE(mediumDict);
+
 error_cfg:
     pciDevice->close(this);
     
@@ -1028,20 +1036,42 @@ IOReturn LucyRTL8125::getMaxPacketSize(UInt32 * maxSize) const
 
 IOReturn LucyRTL8125::setMaxPacketSize(UInt32 maxSize)
 {
+    ifnet_t ifnet = netif->getIfnet();
+    ifnet_offload_t offload;
+    UInt32 mask = 0;
     IOReturn result = kIOReturnError;
 
     DebugLog("setMaxPacketSize() ===>\n");
     
     if (maxSize <= (rxBufferSize - 2)) {
         mtu = maxSize - (ETH_HLEN + ETH_FCS_LEN);
-
         DebugLog("maxSize: %u, mtu: %u\n", maxSize, mtu);
         
+        if (enableTSO4)
+            mask |= IFNET_TSO_IPV4;
+        
+        if (enableTSO6)
+            mask |= IFNET_TSO_IPV6;
+
+        if (enableCSO6)
+            mask |= (IFNET_CSUM_TCPIPV6 | IFNET_CSUM_UDPIPV6);
+
+        offload = ifnet_offload(ifnet);
+        
+        if (mtu > MSS_MAX) {
+            offload &= ~mask;
+            DebugLog("Disable hardware offload features: %x!\n", mask);
+        } else {
+            offload |= mask;
+            DebugLog("Enable hardware offload features: %x!\n", mask);
+        }
+        if (ifnet_set_offload(ifnet, offload))
+            IOLog("Error setting hardware offload: %x!\n", offload);
         /* Force reinitialization. */
         setLinkDown();
         timerSource->cancelTimeout();
         restartRTL8125();
-
+        
         result = kIOReturnSuccess;
     }
     
@@ -1147,13 +1177,32 @@ UInt32 LucyRTL8125::rxInterrupt(IONetworkInterface *interface, uint32_t maxCount
         newPkt = replaceOrCopyPacket(&bufPkt, pktSize, &replaced);
         
         if (unlikely(!newPkt)) {
-            /* Allocation of a new packet failed so that we must leave the original packet in place. */
+            /*
+             * Allocation of a new packet failed. Try to get
+             * a replacement from the list of spare packets.
+             */
+            if (spareNum > 1) {
+                DebugLog("Use spare packet to replace buffer (%d available).\n", spareNum);
+                OSDecrementAtomic(&spareNum);
+
+                newPkt = bufPkt;
+                replaced = true;
+
+                bufPkt = sparePktHead;
+                sparePktHead = mbuf_next(sparePktHead);
+                mbuf_setnext(bufPkt, NULL);
+                goto handle_pkt;
+            }
+            /*
+             * No spare packets available so that we must leave
+             * the original packet in place as a last resort.
+             */
             DebugLog("replaceOrCopyPacket() failed.\n");
             etherStats->dot3RxExtraEntry.resourceErrors++;
             opts1 |= rxBufferSize;
             goto nextDesc;
         }
-        
+handle_pkt:
         /* If the packet was replaced we have to update the descriptor's buffer address. */
         if (replaced) {
             if (rxMbufCursor->getPhysicalSegments(bufPkt, &rxSegment, 1) != 1) {
@@ -1302,6 +1351,9 @@ void LucyRTL8125::interruptHandler(OSObject *client, IOInterruptEventSource *src
                 netif->flushInputQueue();
             
             etherStats->dot3RxExtraEntry.interrupts++;
+            
+            if (spareNum < kRxNumSpareMbufs)
+                refillSpareBuffers();
         }
         /* Tx interrupt */
         if (status & (TxOK | RxOK | PCSTimeout)) {
@@ -1408,6 +1460,9 @@ void LucyRTL8125::pollInputPackets(IONetworkInterface *interface, uint32_t maxCo
         txInterrupt();
         
         clear_bit(__POLLING, &stateFlags);
+        
+        if (spareNum < kRxNumSpareMbufs)
+            commandGate->runAction(refillAction);
     }
     //DebugLog("pollInputPackets() <===\n");
 }
@@ -1636,7 +1691,7 @@ void LucyRTL8125::timerActionRTL8125(IOTimerEventSource *timer)
     lastTxIntrupts = etherStats->dot3TxExtraEntry.interrupts;
     lastTmrIntrupts = tmrInterrupts;
     
-    IOLog("rxIntr/s: %u, txIntr/s: %u, timerIntr/s: %u\n", rxIntr, txIntr, tmrIntr);
+    //IOLog("rxIntr/s: %u, txIntr/s: %u, timerIntr/s: %u\n", rxIntr, txIntr, tmrIntr);
 #endif
     
     updateStatitics();
