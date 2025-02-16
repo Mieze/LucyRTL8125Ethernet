@@ -592,7 +592,7 @@ void LucyRTL8125::freeRxResources()
         rxDescDmaCmd = NULL;
     }
     if (rxBufArrayMem) {
-        IOFree(txBufArrayMem, kRxBufArraySize);
+        IOFree(rxBufArrayMem, kRxBufArraySize);
         rxBufArrayMem = NULL;
         rxMbufArray = NULL;
     }
