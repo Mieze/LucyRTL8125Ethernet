@@ -2,7 +2,7 @@
 
 A macOS driver for Realtek RTL8125 2.5GBit Ethernet Controllers
 
-## Key Features of the Driver
+**Key Features of LucyRTL8125Ethernet**
 
 * Supports all versions of Realtek's RTL8125 2.5GBit Ethernet Controllers found on recent boards.</br>
 * Support for multisegment packets relieving the network stack of unnecessary copy operations when assembling packets for transmission. 
@@ -16,10 +16,17 @@ A macOS driver for Realtek RTL8125 2.5GBit Ethernet Controllers
 * Support for Energy Efficient Ethernet (EEE) which can be disabled by setting enableEEE to NO in the drivers Info.plist without rebuild. The default is YES.
 * The driver is published under GPLv2.
 
-## No support on GitHub!!!
+
+**Support**
 
 In case you are looking for a prebuilt binary or need support, please see the driver's thread on insanelymac.com:
 
 https://www.insanelymac.com/forum/topic/343542-lucyrtl8125ethernetkext-for-realtek-rtl8125/
 
-Support requests here on GitHub will be ignored!
+
+**Contributions**
+
+If you find my projects useful, please consider to buy me a cup of coffee: https://buymeacoffee.com/mieze
+
+Thank you for your support! Your contribution helps me to continue development.
+
