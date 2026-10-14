@@ -764,7 +764,11 @@ IOReturn LucyRTL8125::setMulticastMode(bool active)
 
     DebugLog("setMulticastMode() ===>\n");
     
-    if (active) {
+    /* Promiscuous takes precedence over multicast filter. */
+    if (test_bit(__PROMISC, &stateFlags)) {
+        rxMode = (AcceptBroadcast | AcceptMulticast | AcceptMyPhys | AcceptAllPhys);
+        mcFilter[1] = mcFilter[0] = 0xffffffff;
+    } else if (active) {
         rxMode = (AcceptBroadcast | AcceptMulticast | AcceptMyPhys);
         mcFilter[0] = *filterAddr++;
         mcFilter[1] = *filterAddr;
@@ -805,8 +809,11 @@ IOReturn LucyRTL8125::setMulticastList(IOEthernetAddress *addrs, UInt32 count)
     } else {
         multicastFilter = 0xffffffffffffffff;
     }
-    RTL_W32(tp, MAR0, *filterAddr++);
-    RTL_W32(tp, MAR1, *filterAddr);
+    /* Keep hardware filter open while promiscuous mode active */
+    if (!test_bit(__PROMISC, &stateFlags)) {
+        RTL_W32(tp, MAR0, *filterAddr++);
+        RTL_W32(tp, MAR1, *filterAddr);
+    }
 
     DebugLog("setMulticastList() <===\n");
 
