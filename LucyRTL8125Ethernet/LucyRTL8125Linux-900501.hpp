@@ -46,9 +46,9 @@
 #ifndef __R8125_H
 #define __R8125_H
 
-#include "linux.h"
-#include "mii.h"
-#include "ethertool.h"
+#include "linux/uapi/linux/mii.h"
+#include "linux/ethtool.h"
+#include "linux/if_vlan.h"
 #include "r8125_dash.h"
 
 #if DISABLED_CODE
@@ -455,6 +455,8 @@ printk( "Assertion failed! %s,%s,%s,line=%d\n", \
 #define RxEarly_off_V1 (0x07 << 11)
 #define RxEarly_off_V2 (1 << 11)
 #define Rx_Single_fetch_V2 (1 << 14)
+#define Rx_Close_Multiple (1 << 21)
+#define Rx_Fetch_Number_8 (1 << 30)
 
 #define R8125_REGS_SIZE     (256)
 #define R8125_MAC_REGS_SIZE     (256)
@@ -566,6 +568,7 @@ printk( "Assertion failed! %s,%s,%s,line=%d\n", \
 #endif
 
 #define RTK_ADVERTISE_2500FULL  0x80
+#define RTK_ADVERTISE_5000FULL  0x100
 
 /* Tx NO CLOSE */
 #define MAX_TX_NO_CLOSE_DESC_PTR_V2 0x10000
@@ -1322,6 +1325,7 @@ enum RTL8125_register_content {
     RxCfg_128_int_en = (1 << 15),
     RxCfg_fet_multi_en = (1 << 14),
     RxCfg_half_refetch = (1 << 13),
+    RxCfg_pause_slot_en = (1 << 11),
     RxCfg_9356SEL = (1 << 6),
     
     /* TxConfigBits */
@@ -1987,7 +1991,7 @@ struct rtl8125_private {
     
     u8 HwSuppMagicPktVer;
     
-    u8 HwSuppLinkChgWakeUpVer;
+    //u8 HwSuppLinkChgWakeUpVer;
     
     u8 HwSuppCheckPhyDisableModeVer;
     
@@ -2146,9 +2150,9 @@ struct rtl8125_private {
 #endif
     
     UInt32 hwoptimize;
-    UInt32 s0MagicPacket;
-    UInt32 configEEE;
-    UInt32 configASPM;
+    //UInt32 s0MagicPacket;
+    //UInt32 configEEE;
+    UInt32 aspm;
 };
 
 #if DISABLED_CODE
@@ -2326,6 +2330,21 @@ void rtl8125_wait_phy_ups_resume(struct net_device *dev, u16 PhyState);
 
 u32 rtl8125_csi_other_fun_read(struct rtl8125_private *tp, u8 multi_fun_sel_bit, u32 addr);
 void rtl8125_csi_other_fun_write(struct rtl8125_private *tp, u8 multi_fun_sel_bit, u32 addr, u32 value);
+u8 rtl8125_csi_fun0_read_byte(struct rtl8125_private *tp, u32 addr);
+void rtl8125_csi_fun0_write_byte(struct rtl8125_private *tp, u32 addr, u8 value);
+void rtl8125_init_pci_offset_99(struct rtl8125_private *tp);
+void rtl8125_disable_pci_offset_99(struct rtl8125_private *tp);
+void rtl8125_enable_pci_offset_99(struct rtl8125_private *tp);
+void rtl8125_set_pci_99_180_exit_driver_para(struct rtl8125_private *tp);
+
+void rtl8125_hw_d3_para(struct rtl8125_private *tp);
+void rtl8125_exit_oob(struct rtl8125_private *tp);
+
+void rtl8125_hw_phy_config_8125a_1(struct rtl8125_private *tp, u16 mtu);
+void rtl8125_hw_phy_config_8125a_2(struct rtl8125_private *tp, u16 mtu);
+void rtl8125_hw_phy_config_8125b_1(struct rtl8125_private *tp, u16 mtu);
+void rtl8125_hw_phy_config_8125b_2(struct rtl8125_private *tp, u16 mtu);
+
 
 void rtl8125_eeprom_type(struct rtl8125_private *tp);
 

@@ -3,18 +3,23 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 54;
+	objectVersion = 70;
 	objects = {
 
 /* Begin PBXBuildFile section */
+		D30F5EEE2F51D325006C3287 /* rtl812x.h in Headers */ = {isa = PBXBuildFile; fileRef = D30F5EED2F51D325006C3287 /* rtl812x.h */; };
 		D3453DF02F4BCA6C009B9B3D /* RTL8125LucyRxPool.cpp in Sources */ = {isa = PBXBuildFile; fileRef = D3453DEF2F4BCA6C009B9B3D /* RTL8125LucyRxPool.cpp */; };
 		D3453DF32F4BCADB009B9B3D /* RTL8125LucyVTD.cpp in Sources */ = {isa = PBXBuildFile; fileRef = D3453DF22F4BCADB009B9B3D /* RTL8125LucyVTD.cpp */; };
 		D346B75A2443D45400905CD6 /* LucyRTL8125Hardware.cpp in Sources */ = {isa = PBXBuildFile; fileRef = D346B7592443D45400905CD6 /* LucyRTL8125Hardware.cpp */; };
+		D37815892F5F0EBA00B04BAF /* rtl812x_dash.h in Headers */ = {isa = PBXBuildFile; fileRef = D37815882F5F0EBA00B04BAF /* rtl812x_dash.h */; };
+		D380EC9F2F5E6059008701BC /* rtl812x_eeprom.c in Sources */ = {isa = PBXBuildFile; fileRef = D380EC9E2F5E6059008701BC /* rtl812x_eeprom.c */; };
+		D380ECA02F5E6059008701BC /* rtl812x_eeprom.h in Headers */ = {isa = PBXBuildFile; fileRef = D380EC9D2F5E6059008701BC /* rtl812x_eeprom.h */; };
+		D380ECA22F5E61E5008701BC /* rtl812x_phy.c in Sources */ = {isa = PBXBuildFile; fileRef = D380ECA12F5E61E5008701BC /* rtl812x_phy.c */; };
 		D38D865F2443ACB600D94935 /* LucyRTL8125Ethernet.hpp in Headers */ = {isa = PBXBuildFile; fileRef = D38D865E2443ACB600D94935 /* LucyRTL8125Ethernet.hpp */; };
 		D38D86612443ACB600D94935 /* LucyRTL8125Ethernet.cpp in Sources */ = {isa = PBXBuildFile; fileRef = D38D86602443ACB600D94935 /* LucyRTL8125Ethernet.cpp */; };
 		D38F5FA12BABCA34005D5D2A /* LucyRTL8125Setup.cpp in Sources */ = {isa = PBXBuildFile; fileRef = D38F5FA02BABCA34005D5D2A /* LucyRTL8125Setup.cpp */; };
 		D38F64F52BABD037005D5D2A /* libkmod.a in Frameworks */ = {isa = PBXBuildFile; fileRef = D38F64F02BABD022005D5D2A /* libkmod.a */; };
-		D3E7391B2620E7CF0083B9FC /* LucyRTL8125Linux-900501.cpp in Sources */ = {isa = PBXBuildFile; fileRef = D3EF667D261531670078DB54 /* LucyRTL8125Linux-900501.cpp */; };
+		D3AC727E2F4E5730007A4FDB /* rtl8125.cpp in Sources */ = {isa = PBXBuildFile; fileRef = D3AC72792F4E38D8007A4FDB /* rtl8125.cpp */; };
 		D3EF6680261531670078DB54 /* LucyRTL8125Linux-900501.hpp in Headers */ = {isa = PBXBuildFile; fileRef = D3EF667E261531670078DB54 /* LucyRTL8125Linux-900501.hpp */; };
 /* End PBXBuildFile section */
 
@@ -43,21 +48,22 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		D30F5EED2F51D325006C3287 /* rtl812x.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = rtl812x.h; sourceTree = "<group>"; };
 		D3453DEE2F4BCA6C009B9B3D /* RTL8125LucyRxPool.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = RTL8125LucyRxPool.hpp; sourceTree = "<group>"; };
 		D3453DEF2F4BCA6C009B9B3D /* RTL8125LucyRxPool.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = RTL8125LucyRxPool.cpp; sourceTree = "<group>"; };
 		D3453DF22F4BCADB009B9B3D /* RTL8125LucyVTD.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = RTL8125LucyVTD.cpp; sourceTree = "<group>"; };
 		D346B7582443CE0A00905CD6 /* r8125_dash.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = r8125_dash.h; sourceTree = "<group>"; };
 		D346B7592443D45400905CD6 /* LucyRTL8125Hardware.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = LucyRTL8125Hardware.cpp; sourceTree = "<group>"; };
+		D37815882F5F0EBA00B04BAF /* rtl812x_dash.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = rtl812x_dash.h; sourceTree = "<group>"; };
+		D380EC9D2F5E6059008701BC /* rtl812x_eeprom.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = rtl812x_eeprom.h; sourceTree = "<group>"; };
+		D380EC9E2F5E6059008701BC /* rtl812x_eeprom.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = rtl812x_eeprom.c; sourceTree = "<group>"; };
+		D380ECA12F5E61E5008701BC /* rtl812x_phy.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = rtl812x_phy.c; sourceTree = "<group>"; };
 		D38D865B2443ACB600D94935 /* LucyRTL8125Ethernet.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = LucyRTL8125Ethernet.kext; sourceTree = BUILT_PRODUCTS_DIR; };
 		D38D865E2443ACB600D94935 /* LucyRTL8125Ethernet.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = LucyRTL8125Ethernet.hpp; sourceTree = "<group>"; };
 		D38D86602443ACB600D94935 /* LucyRTL8125Ethernet.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = LucyRTL8125Ethernet.cpp; sourceTree = "<group>"; };
 		D38D86622443ACB600D94935 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		D38D86682443AF9100D94935 /* LucyRTL8125Ethernet-Prefix.pch */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "LucyRTL8125Ethernet-Prefix.pch"; sourceTree = "<group>"; };
-		D38D86702443B66200D94935 /* ethertool.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ethertool.h; sourceTree = "<group>"; };
-		D38D86712443B66300D94935 /* linux.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = linux.h; sourceTree = "<group>"; };
-		D38D86722443B66300D94935 /* mii.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = mii.h; sourceTree = "<group>"; };
 		D38D86742443B66300D94935 /* gpl.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = gpl.txt; sourceTree = "<group>"; };
-		D38D86752443B66300D94935 /* if_ether.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = if_ether.h; sourceTree = "<group>"; };
 		D38F5FA02BABCA34005D5D2A /* LucyRTL8125Setup.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = LucyRTL8125Setup.cpp; sourceTree = "<group>"; };
 		D38F5FA72BABD01F005D5D2A /* libkmod.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = libkmod.a; sourceTree = "<group>"; };
 		D38F5FA82BABD01F005D5D2A /* libkmodc++.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = "libkmodc++.a"; sourceTree = "<group>"; };
@@ -1291,9 +1297,14 @@
 		D38F64E82BABD022005D5D2A /* video_console.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = video_console.h; sourceTree = "<group>"; };
 		D38F64E92BABD022005D5D2A /* string.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = string.h; sourceTree = "<group>"; };
 		D38F64EA2BABD022005D5D2A /* LICENSE.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = LICENSE.txt; sourceTree = "<group>"; };
+		D3AC72792F4E38D8007A4FDB /* rtl8125.cpp */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.cpp; path = rtl8125.cpp; sourceTree = "<group>"; };
 		D3EF667D261531670078DB54 /* LucyRTL8125Linux-900501.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "LucyRTL8125Linux-900501.cpp"; sourceTree = "<group>"; };
 		D3EF667E261531670078DB54 /* LucyRTL8125Linux-900501.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = "LucyRTL8125Linux-900501.hpp"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedRootGroup section */
+		D3AC72672F4DE8AE007A4FDB /* linux */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = linux; sourceTree = "<group>"; };
+/* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		D38D86582443ACB600D94935 /* Frameworks */ = {
@@ -1327,6 +1338,7 @@
 		D38D865D2443ACB600D94935 /* LucyRTL8125Ethernet */ = {
 			isa = PBXGroup;
 			children = (
+				D3AC72672F4DE8AE007A4FDB /* linux */,
 				D38D865E2443ACB600D94935 /* LucyRTL8125Ethernet.hpp */,
 				D38D86602443ACB600D94935 /* LucyRTL8125Ethernet.cpp */,
 				D346B7592443D45400905CD6 /* LucyRTL8125Hardware.cpp */,
@@ -1337,10 +1349,12 @@
 				D3EF667E261531670078DB54 /* LucyRTL8125Linux-900501.hpp */,
 				D3EF667D261531670078DB54 /* LucyRTL8125Linux-900501.cpp */,
 				D346B7582443CE0A00905CD6 /* r8125_dash.h */,
-				D38D86702443B66200D94935 /* ethertool.h */,
-				D38D86752443B66300D94935 /* if_ether.h */,
-				D38D86712443B66300D94935 /* linux.h */,
-				D38D86722443B66300D94935 /* mii.h */,
+				D37815882F5F0EBA00B04BAF /* rtl812x_dash.h */,
+				D380ECA12F5E61E5008701BC /* rtl812x_phy.c */,
+				D30F5EED2F51D325006C3287 /* rtl812x.h */,
+				D3AC72792F4E38D8007A4FDB /* rtl8125.cpp */,
+				D380EC9D2F5E6059008701BC /* rtl812x_eeprom.h */,
+				D380EC9E2F5E6059008701BC /* rtl812x_eeprom.c */,
 				D38D86682443AF9100D94935 /* LucyRTL8125Ethernet-Prefix.pch */,
 				D38D86742443B66300D94935 /* gpl.txt */,
 				D38D86622443ACB600D94935 /* Info.plist */,
@@ -3540,7 +3554,10 @@
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				D37815892F5F0EBA00B04BAF /* rtl812x_dash.h in Headers */,
 				D3EF6680261531670078DB54 /* LucyRTL8125Linux-900501.hpp in Headers */,
+				D30F5EEE2F51D325006C3287 /* rtl812x.h in Headers */,
+				D380ECA02F5E6059008701BC /* rtl812x_eeprom.h in Headers */,
 				D38D865F2443ACB600D94935 /* LucyRTL8125Ethernet.hpp in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -3560,6 +3577,9 @@
 			buildRules = (
 			);
 			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				D3AC72672F4DE8AE007A4FDB /* linux */,
 			);
 			name = LucyRTL8125Ethernet;
 			productName = LucyRTL8125Ethernet;
@@ -3646,9 +3666,11 @@
 			files = (
 				D38D86612443ACB600D94935 /* LucyRTL8125Ethernet.cpp in Sources */,
 				D38F5FA12BABCA34005D5D2A /* LucyRTL8125Setup.cpp in Sources */,
+				D3AC727E2F4E5730007A4FDB /* rtl8125.cpp in Sources */,
+				D380ECA22F5E61E5008701BC /* rtl812x_phy.c in Sources */,
 				D346B75A2443D45400905CD6 /* LucyRTL8125Hardware.cpp in Sources */,
-				D3E7391B2620E7CF0083B9FC /* LucyRTL8125Linux-900501.cpp in Sources */,
 				D3453DF32F4BCADB009B9B3D /* RTL8125LucyVTD.cpp in Sources */,
+				D380EC9F2F5E6059008701BC /* rtl812x_eeprom.c in Sources */,
 				D3453DF02F4BCA6C009B9B3D /* RTL8125LucyRxPool.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -3800,13 +3822,13 @@
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "-";
 				CODE_SIGN_STYLE = Manual;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 1.2.300;
+				CURRENT_PROJECT_VERSION = 1.2.400;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = "";
 				GCC_PREFIX_HEADER = "LucyRTL8125Ethernet/LucyRTL8125Ethernet-Prefix.pch";
 				INFOPLIST_FILE = LucyRTL8125Ethernet/Info.plist;
 				MACOSX_DEPLOYMENT_TARGET = 10.15;
-				MARKETING_VERSION = 1.2.3;
+				MARKETING_VERSION = 1.2.4;
 				MODULE_NAME = com.insanelymac.LucyRTL8125;
 				MODULE_VERSION = $CURRENT_PROJECT_VERSION;
 				PRODUCT_BUNDLE_IDENTIFIER = com.insanelymac.LucyRTL8125Ethernet;
@@ -3827,13 +3849,13 @@
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "-";
 				CODE_SIGN_STYLE = Manual;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 1.2.300;
+				CURRENT_PROJECT_VERSION = 1.2.400;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = "";
 				GCC_PREFIX_HEADER = "LucyRTL8125Ethernet/LucyRTL8125Ethernet-Prefix.pch";
 				INFOPLIST_FILE = LucyRTL8125Ethernet/Info.plist;
 				MACOSX_DEPLOYMENT_TARGET = 10.15;
-				MARKETING_VERSION = 1.2.3;
+				MARKETING_VERSION = 1.2.4;
 				MODULE_NAME = com.insanelymac.LucyRTL8125;
 				MODULE_VERSION = $CURRENT_PROJECT_VERSION;
 				ONLY_ACTIVE_ARCH = YES;

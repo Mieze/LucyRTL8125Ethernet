@@ -213,7 +213,7 @@ void LucyRTL8125::interruptOccurredVTD(OSObject *client, IOInterruptEventSource 
         clear_bit(__POLLING, &stateFlags);
     }
     if (status & LinkChg) {
-        checkLinkStatus();
+        rtl812xCheckLinkStatus(tp);
         RTL_W32(tp, TIMER_INT0_8125, 0x000);
         intrMask = intrMaskRxTx;
     }

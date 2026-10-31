@@ -19,6 +19,8 @@
 */
 
 #include "LucyRTL8125Ethernet.hpp"
+#include "linux/mdio.h"
+#include "rtl812x_eeprom.h"
 
 #pragma mark --- hardware initialization methods ---
 
@@ -58,13 +60,13 @@ bool LucyRTL8125::initPCIConfigSpace(IOPCIDevice *provider)
         pcieLinkCtl = provider->configRead16(pcieCapOffset + kIOPCIELinkControl);
         DebugLog("PCIe link capabilities: 0x%08x, link control: 0x%04x.\n", pcieLinkCap, pcieLinkCtl);
         
-        if (linuxData.configASPM == 0) {
+        if (linuxData.aspm == 0) {
             IOLog("Disable PCIe ASPM.\n");
             provider->setASPMState(this, 0);
         } else {
             IOLog("Warning: Enable PCIe ASPM.\n");
             provider->setASPMState(this, kIOPCIELinkCtlASPM | kIOPCIELinkCtlClkPM);
-            linuxData.configASPM = 1;
+            linuxData.aspm = 1;
         }
     }
     /* Enable the device. */
@@ -139,56 +141,142 @@ IOReturn LucyRTL8125::setPowerStateSleepAction(OSObject *owner, void *arg1, void
  * of the underlying Linux sources.
  */
 
-IOReturn LucyRTL8125::identifyChip()
+bool LucyRTL8125::rtl812xIdentifyChip(struct rtl8125_private *tp)
 {
-    struct rtl8125_private *tp = &linuxData;
-    IOReturn result = kIOReturnSuccess;
     UInt32 reg, val32;
-    UInt32 version;
-
+    UInt32 ICVerID;
+    
     val32 = RTL_R32(tp, TxConfig);
     reg = val32 & 0x7c800000;
-    version = val32 & 0x00700000;
+    ICVerID = val32 & 0x00700000;
+
+    tp->mcfg = CFG_METHOD_DEFAULT;
+    tp->HwIcVerUnknown = false;
 
     switch (reg) {
         case 0x60800000:
-            if (version == 0x00000000) {
+            if (ICVerID == 0x00000000) {
                 tp->mcfg = CFG_METHOD_2;
                 tp->chipset = 0;
-            } else if (version == 0x100000) {
+            } else if (ICVerID == 0x100000) {
                 tp->mcfg = CFG_METHOD_3;
                 tp->chipset = 1;
             } else {
                 tp->mcfg = CFG_METHOD_3;
                 tp->chipset = 1;
-                tp->HwIcVerUnknown = true;
+
+                tp->HwIcVerUnknown = TRUE;
             }
-            tp->efuse_ver = EFUSE_SUPPORT_V4;
+
+            //tp->efuse_ver = EFUSE_SUPPORT_V4;
             break;
             
         case 0x64000000:
-            if (version == 0x00000000) {
+            if (ICVerID == 0x00000000) {
                 tp->mcfg = CFG_METHOD_4;
                 tp->chipset = 2;
-            } else if (version == 0x100000) {
+            } else if (ICVerID == 0x100000) {
                 tp->mcfg = CFG_METHOD_5;
                 tp->chipset = 3;
             } else {
                 tp->mcfg = CFG_METHOD_5;
                 tp->chipset = 3;
-                tp->HwIcVerUnknown = true;
+                tp->HwIcVerUnknown = TRUE;
             }
-            tp->efuse_ver = EFUSE_SUPPORT_V4;
+
+            //tp->efuse_ver = EFUSE_SUPPORT_V4;
+            break;
+            
+        case 0x68000000:
+            if (ICVerID == 0x00000000) {
+                tp->mcfg = CFG_METHOD_8;
+                tp->chipset = 6;
+            } else if (ICVerID == 0x100000) {
+                tp->mcfg = CFG_METHOD_9;
+                tp->chipset = 7;
+            } else {
+                tp->mcfg = CFG_METHOD_9;
+                tp->chipset = 7;
+                tp->HwIcVerUnknown = TRUE;
+            }
+            //tp->efuse_ver = EFUSE_SUPPORT_V4;
+            break;
+            
+        case 0x68800000:
+            if (ICVerID == 0x00000000) {
+                tp->mcfg = CFG_METHOD_10;
+                tp->chipset = 8;
+            } else if (ICVerID == 0x100000) {
+                tp->mcfg = CFG_METHOD_11;
+                tp->chipset = 9;
+            } else {
+                tp->mcfg = CFG_METHOD_11;
+                tp->chipset = 9;
+                tp->HwIcVerUnknown = TRUE;
+            }
+            //tp->efuse_ver = EFUSE_SUPPORT_V4;
+            break;
+            
+        case 0x70800000:
+            if (ICVerID == 0x00000000) {
+                tp->mcfg = CFG_METHOD_12;
+                tp->chipset = 10;
+            } else {
+                tp->mcfg = CFG_METHOD_12;
+                tp->chipset = 10;
+                tp->HwIcVerUnknown = TRUE;
+            }
+            //tp->efuse_ver = EFUSE_SUPPORT_V4;
+            break;
+            
+        case 0x64800000:
+            if (ICVerID == 0x00000000) {
+                tp->mcfg = CFG_METHOD_31;
+                tp->chipset = 12;
+            } else if (ICVerID == 0x100000) {
+                tp->mcfg = CFG_METHOD_32;
+                tp->chipset = 13;
+            } else if (ICVerID == 0x200000) {
+                tp->mcfg = CFG_METHOD_33;
+                tp->chipset = 14;
+            } else {
+                tp->mcfg = CFG_METHOD_33;
+                tp->chipset = 14;
+                tp->HwIcVerUnknown = TRUE;
+            }
+            //tp->efuse_ver = EFUSE_SUPPORT_V4;
             break;
             
         default:
+            DebugLog("Unknown chip version (%x)\n", reg);
             tp->mcfg = CFG_METHOD_DEFAULT;
-            tp->HwIcVerUnknown = true;
-            tp->efuse_ver = EFUSE_NOT_SUPPORT;
-            result = kIOReturnError;
+            tp->HwIcVerUnknown = TRUE;
+            //tp->efuse_ver = EFUSE_NOT_SUPPORT;
             break;
     }
-    return result;
+
+    if (pciDeviceData.device == 0x8162) {
+        if (tp->mcfg == CFG_METHOD_3) {
+            tp->mcfg = CFG_METHOD_6;
+            tp->chipset = 4;
+        } else if (tp->mcfg == CFG_METHOD_5) {
+            tp->mcfg = CFG_METHOD_7;
+            tp->chipset = 5;
+        } else if (tp->mcfg == CFG_METHOD_11) {
+            tp->mcfg = CFG_METHOD_13;
+            tp->chipset = 11;
+        }
+    }
+    
+    tp->rtl8125_rx_config = rtlChipInfos[tp->chipset].RCR_Cfg;
+
+#ifdef ENABLE_USE_FIRMWARE_FILE
+    tp->fw_name = rtlChipFwInfos[tp->mcfg].fw_name;
+#else
+    tp->fw_name = NULL;
+#endif  /* ENABLE_USE_FIRMWARE_FILE */
+    
+    return (tp->mcfg == CFG_METHOD_DEFAULT) ? false : true;
 }
 
 void LucyRTL8125::initMacAddr(struct rtl8125_private *tp)
@@ -236,258 +324,67 @@ done:
     rtl8125_rar_set(&linuxData, (UInt8 *)&currMacAddr.bytes);
 }
 
-bool LucyRTL8125::initRTL8125()
+bool LucyRTL8125::rtl812xInit()
 {
     struct rtl8125_private *tp = &linuxData;
-    UInt32 i;
-    UInt8 macAddr[MAC_ADDR_LEN];
     bool result = false;
     
     /* Identify chip attached to board. */
-    if(identifyChip()) {
-        IOLog("Unsupported chip found. Aborting...\n");
+    if (!rtl812xIdentifyChip(tp)) {
+        IOLog("Unknown chipset. Aborting...\n");
         goto done;
     }
-    
-    /* Setup EEE support. */
-    tp->eee_adv_t = eeeCap = (MDIO_EEE_100TX | MDIO_EEE_1000T);
-    
+
     tp->phy_reset_enable = rtl8125_xmii_reset_enable;
     tp->phy_reset_pending = rtl8125_xmii_reset_pending;
+    tp->link_ok = rtl8125_xmii_link_ok;
 
-    tp->max_jumbo_frame_size = rtl_chip_info[tp->chipset].jumbo_frame_sz;
-    
     rtl8125_get_bios_setting(tp);
     
-    switch (tp->mcfg) {
-        case CFG_METHOD_2:
-        case CFG_METHOD_3:
-        case CFG_METHOD_4:
-        case CFG_METHOD_5:
-            //tp->HwSuppDashVer = 3;
-            break;
-        default:
-            tp->HwSuppDashVer = 0;
-            break;
-    }
+    rtl8125_init_software_variable(tp);
+    
+    /* Setup lpi timer. */
+    tp->eee.tx_lpi_timer = mtu + ETH_HLEN + 0x20;
 
-    switch (tp->mcfg) {
-        case CFG_METHOD_2:
-        case CFG_METHOD_3:
-        case CFG_METHOD_4:
-        case CFG_METHOD_5:
-            tp->HwPkgDet = rtl8125_mac_ocp_read(tp, 0xDC00);
-            tp->HwPkgDet = (tp->HwPkgDet >> 3) & 0x07;
-            break;
-    }
-
-    switch (tp->mcfg) {
-        case CFG_METHOD_2:
-        case CFG_METHOD_3:
-        case CFG_METHOD_4:
-        case CFG_METHOD_5:
-            tp->HwSuppNowIsOobVer = 1;
-            break;
-    }
-
-    switch (tp->mcfg) {
-        case CFG_METHOD_2:
-        case CFG_METHOD_3:
-        case CFG_METHOD_4:
-        case CFG_METHOD_5:
-            tp->HwPcieSNOffset = 0x16C;
-            break;
-    }
-
-    #ifdef ENABLE_REALWOW_SUPPORT
-            rtl8125_get_realwow_hw_version(dev);
-    #endif //ENABLE_REALWOW_SUPPORT
-
-    if (linuxData.configASPM) {
-        switch (tp->mcfg) {
-            case CFG_METHOD_2:
-            case CFG_METHOD_3:
-            case CFG_METHOD_4:
-            case CFG_METHOD_5:
-                    tp->org_pci_offset_99 = csiFun0ReadByte(0x99);
-                    tp->org_pci_offset_99 &= ~(BIT_5|BIT_6);
-                    break;
-        }
-        switch (tp->mcfg) {
-            case CFG_METHOD_2:
-            case CFG_METHOD_3:
-                    tp->org_pci_offset_180 = csiFun0ReadByte(0x264);
-                    break;
-            case CFG_METHOD_4:
-            case CFG_METHOD_5:
-                    tp->org_pci_offset_180 = csiFun0ReadByte(0x214);
-                    break;
-        }
-    }
-    tp->org_pci_offset_80 = pciDevice->configRead8(0x80);
-    tp->org_pci_offset_81 = pciDevice->configRead8(0x81);
-    tp->use_timer_interrrupt = true;
-/*
-    switch (tp->mcfg) {
-        case CFG_METHOD_2:
-        case CFG_METHOD_3:
-        case CFG_METHOD_4:
-        case CFG_METHOD_5:
-        default:
-            tp->use_timer_interrrupt = true;
-            break;
-    }
-*/
-
-    switch (tp->mcfg) {
-        case CFG_METHOD_2:
-        case CFG_METHOD_3:
-        case CFG_METHOD_4:
-        case CFG_METHOD_5:
-            tp->HwSuppMagicPktVer = WAKEUP_MAGIC_PACKET_V3;
-            break;
-        default:
-            tp->HwSuppMagicPktVer = WAKEUP_MAGIC_PACKET_NOT_SUPPORT;
-            break;
-    }
-    switch (tp->mcfg) {
-        case CFG_METHOD_2:
-        case CFG_METHOD_3:
-        case CFG_METHOD_4:
-        case CFG_METHOD_5:
-            tp->HwSuppLinkChgWakeUpVer = 3;
-            break;
-    }
-    switch (tp->mcfg) {
-        case CFG_METHOD_3:
-        case CFG_METHOD_4:
-        case CFG_METHOD_5:
-            tp->HwSuppD0SpeedUpVer = 1;
-            break;
-    }
-    switch (tp->mcfg) {
-        case CFG_METHOD_2:
-        case CFG_METHOD_3:
-        case CFG_METHOD_4:
-        case CFG_METHOD_5:
-            tp->HwSuppCheckPhyDisableModeVer = 3;
-            break;
-    }
-    switch (tp->mcfg) {
-        case CFG_METHOD_2:
-        case CFG_METHOD_3:
-        case CFG_METHOD_4:
-        case CFG_METHOD_5:
-            tp->HwSuppGigaForceMode = true;
-            break;
-    }
-    switch (tp->mcfg) {
-        case CFG_METHOD_2:
-        case CFG_METHOD_3:
-        case CFG_METHOD_4:
-        case CFG_METHOD_5:
-            tp->HwSuppTxNoCloseVer = 3;
-            break;
-    }
-    if (tp->HwSuppTxNoCloseVer > 0)
-        tp->EnableTxNoClose = true;
-
-    switch (tp->mcfg) {
-        case CFG_METHOD_2:
-        case CFG_METHOD_3:
-            tp->RequireLSOPatch = true;
-            break;
-    }
-
-    switch (tp->mcfg) {
-        case CFG_METHOD_2:
-            tp->sw_ram_code_ver = NIC_RAMCODE_VERSION_CFG_METHOD_2;
-            break;
-        case CFG_METHOD_3:
-            tp->sw_ram_code_ver = NIC_RAMCODE_VERSION_CFG_METHOD_3;
-            break;
-        case CFG_METHOD_4:
-            tp->sw_ram_code_ver = NIC_RAMCODE_VERSION_CFG_METHOD_4;
-            break;
-        case CFG_METHOD_5:
-            tp->sw_ram_code_ver = NIC_RAMCODE_VERSION_CFG_METHOD_5;
-            break;
-    }
-
-    if (tp->HwIcVerUnknown) {
-            tp->NotWrRamCodeToMicroP = true;
-            tp->NotWrMcuPatchCode = true;
-    }
-
-    switch (tp->mcfg) {
-    case CFG_METHOD_3:
-        if ((rtl8125_mac_ocp_read(tp, 0xD442) & BIT_5) &&
-            (mdio_direct_read_phy_ocp(tp, 0xD068) & BIT_1)
-            ) {
-                tp->RequirePhyMdiSwapPatch = true;
-        }
-        break;
-    }
-    switch (tp->mcfg) {
-        case CFG_METHOD_4:
-        case CFG_METHOD_5:
-            tp->HwSuppNumTxQueues = 2;
-            tp->HwSuppNumRxQueues = 4;
-            break;
-        default:
-            tp->HwSuppNumTxQueues = 1;
-            tp->HwSuppNumRxQueues = 1;
-            break;
-    }
-    switch (tp->mcfg) {
-        case CFG_METHOD_4:
-        case CFG_METHOD_5:
-            tp->HwSuppRssVer = 5;
-            tp->HwSuppIndirTblEntries = 128;
-            break;
-    }
-    switch (tp->mcfg) {
-        case CFG_METHOD_4:
-        case CFG_METHOD_5:
-            tp->HwSuppPtpVer = 1;
-            break;
-    }
-
-    //init interrupt
-    switch (tp->mcfg) {
-        case CFG_METHOD_4:
-        case CFG_METHOD_5:
-            //tp->HwSuppIsrVer = 2;
-            tp->HwSuppIsrVer = 1;
-            break;
-        default:
-            tp->HwSuppIsrVer = 1;
-            break;
-    }
-    switch (tp->mcfg) {
-        case CFG_METHOD_2:
-        case CFG_METHOD_3:
-            tp->HwSuppIntMitiVer = 3;
-            break;
-        case CFG_METHOD_4:
-        case CFG_METHOD_5:
-            tp->HwSuppIntMitiVer = 4;
-            break;
-    }
-
-    tp->NicCustLedValue = RTL_R16(tp, CustomLED);
+    /* Setup maximum receive size. */
+    tp->rms = mtu + VLAN_ETH_HLEN + ETH_FCS_LEN;
+    
+    //tp->NicCustLedValue = RTL_R16(tp, CustomLED);
 
     tp->wol_opts = rtl8125_get_hw_wol(tp);
     tp->wol_enabled = (tp->wol_opts) ? WOL_ENABLED : WOL_DISABLED;
 
     /* Set wake on LAN support. */
     wolCapable = (tp->wol_enabled == WOL_ENABLED);
-
-    //tp->eee_enabled = eee_enable;
-    tp->eee_adv_t = MDIO_EEE_1000T | MDIO_EEE_100TX;
     
-    exitOOB();
-    rtl8125_hw_init(tp);
+    rtl8125_set_link_option(tp, AUTONEG_ENABLE, SPEED_2500, DUPLEX_FULL,
+                            rtl8125_fc_none);
+    
+    if (tp->mcfg != CFG_METHOD_DEFAULT) {
+        struct ethtool_keee *eee = &tp->eee;
+
+        eee->eee_enabled = 1;
+        linkmode_set_bit(ETHTOOL_LINK_MODE_100baseT_Full_BIT, &eee->supported);
+        linkmode_set_bit(ETHTOOL_LINK_MODE_1000baseT_Full_BIT, &eee->supported);
+        linkmode_set_bit(ETHTOOL_LINK_MODE_100baseT_Full_BIT, &eee->advertised);
+        linkmode_set_bit(ETHTOOL_LINK_MODE_1000baseT_Full_BIT, &eee->advertised);
+
+        if (tp->mcfg > CFG_METHOD_3) {
+            if (HW_SUPP_PHY_LINK_SPEED_2500M(tp)) {
+                linkmode_set_bit(ETHTOOL_LINK_MODE_2500baseT_Full_BIT, &eee->supported);
+                linkmode_set_bit(ETHTOOL_LINK_MODE_2500baseT_Full_BIT, &eee->advertised);
+                linkmode_set_bit(ETHTOOL_LINK_MODE_5000baseT_Full_BIT, &eee->advertised);
+            }
+            if (HW_SUPP_PHY_LINK_SPEED_5000M(tp))
+                linkmode_set_bit(ETHTOOL_LINK_MODE_5000baseT_Full_BIT, &eee->supported);
+        }
+        eee->tx_lpi_enabled = 1;
+        eee->tx_lpi_timer = ETH_DATA_LEN + ETH_HLEN + 0x20;
+    }
+
+    rtl8125_exit_oob(tp);
+    rtl812xHwInit(tp);
+
     rtl8125_nic_reset(tp);
     
     /* Get production from EEPROM */
@@ -496,32 +393,7 @@ bool LucyRTL8125::initRTL8125()
     if (tp->eeprom_type == EEPROM_TYPE_93C46 || tp->eeprom_type == EEPROM_TYPE_93C56)
             rtl8125_set_eeprom_sel_low(tp);
 
-    for (i = 0; i < MAC_ADDR_LEN; i++)
-            macAddr[i] = RTL_R8(tp, MAC0 + i);
-
-    if(tp->mcfg == CFG_METHOD_2 ||
-        tp->mcfg == CFG_METHOD_3 ||
-        tp->mcfg == CFG_METHOD_4 ||
-        tp->mcfg == CFG_METHOD_5) {
-            *(UInt32*)&macAddr[0] = RTL_R32(tp, BACKUP_ADDR0_8125);
-            *(UInt16*)&macAddr[4] = RTL_R16(tp, BACKUP_ADDR1_8125);
-    }
-
-    if (is_valid_ether_addr((UInt8 *) macAddr)) {
-        rtl8125_rar_set(tp, macAddr);
-    } else {
-        IOLog("Using fallback MAC.\n");
-        rtl8125_rar_set(tp, fallBackMacAddr.bytes);
-    }
-    for (i = 0; i < MAC_ADDR_LEN; i++) {
-        currMacAddr.bytes[i] = RTL_R8(tp, MAC0 + i);
-        origMacAddr.bytes[i] = currMacAddr.bytes[i]; /* keep the original MAC address */
-    }
-    IOLog("%s: (Chipset %d), %2.2x:%2.2x:%2.2x:%2.2x:%2.2x:%2.2x\n",
-          rtl_chip_info[tp->chipset].name, tp->chipset,
-          origMacAddr.bytes[0], origMacAddr.bytes[1],
-          origMacAddr.bytes[2], origMacAddr.bytes[3],
-          origMacAddr.bytes[4], origMacAddr.bytes[5]);
+    initMacAddr(tp);
     
     tp->cp_cmd = (RTL_R16(tp, CPlusCmd) | RxChkSum);
     
@@ -531,8 +403,7 @@ bool LucyRTL8125::initRTL8125()
     intrMask = intrMaskRxTx;
     
     /* Get the RxConfig parameters. */
-    rxConfigReg = rtl_chip_info[tp->chipset].RCR_Cfg;
-    rxConfigMask = rtl_chip_info[tp->chipset].RxConfigMask;
+    tp->rtl8125_rx_config = rtlChipInfos[tp->chipset].RCR_Cfg;
   
     /* Reset the tally counter. */
     RTL_W32(tp, CounterAddrHigh, (statPhyAddr >> 32));
@@ -553,7 +424,7 @@ done:
     return result;
 }
 
-void LucyRTL8125::enableRTL8125()
+void LucyRTL8125::rtl812xEnable()
 {
     struct rtl8125_private *tp = &linuxData;
     
@@ -562,29 +433,32 @@ void LucyRTL8125::enableRTL8125()
     intrMask = intrMaskRxTx;
     clear_bit(__POLL_MODE, &stateFlags);
     
-    exitOOB();
-    rtl8125_hw_init(tp);
-    rtl8125_nic_reset(tp);
+    rtl8125_exit_oob(tp);
+    rtl812xHwInit(tp);
+    rtl8125_hw_reset(tp);
     rtl8125_powerup_pll(tp);
     rtl8125_hw_ephy_config(tp);
-    configPhyHardware();
-    setupRTL8125();
+    rtl8125_hw_phy_config(tp);
+    rtl812xHwConfig(tp);
     
-    setPhyMedium();
+    rtl812xSetPhyMedium(tp, tp->autoneg, tp->speed, tp->duplex, tp->advertising);
 }
 
-void LucyRTL8125::disableRTL8125()
+void LucyRTL8125::rtl812xDisable()
 {
     struct rtl8125_private *tp = &linuxData;
     
-    /* Disable all interrupts by clearing the interrupt mask. */
-    RTL_W32(tp, IMR0_8125, 0);
-    RTL_W16(tp, IntrStatus, RTL_R16(tp, IntrStatus));
-
-    rtl8125_nic_reset(tp);
-    hardwareD3Para();
-    powerDownPLL();
+    rtl8125_irq_mask_and_ack(tp);
+    rtl8125_hw_reset(tp);
     
+    clearRxTxRings();
+    
+    rtl8125_hw_d3_para(tp);
+    rtl8125_powerdown_pll(tp);
+    
+    if (HW_DASH_SUPPORT_DASH(tp))
+        rtl8125_driver_stop(tp);
+
     if (test_and_clear_bit(__LINK_UP, &stateFlags)) {
         setLinkStatus(kIONetworkLinkValid);
         IOLog("Link down on en%u\n", netif->getUnitNumber());
@@ -596,7 +470,7 @@ void LucyRTL8125::disableRTL8125()
  * been reestablished.
  */
 
-void LucyRTL8125::restartRTL8125()
+void LucyRTL8125::rtl812xRestart()
 {
     /* Stop output thread and flush txQueue */
     netif->stopOutputThread();
@@ -614,31 +488,64 @@ void LucyRTL8125::restartRTL8125()
     clearRxTxRings();
 
     /* Reinitialize NIC. */
-    enableRTL8125();
+    rtl812xEnable();
 }
 
-void LucyRTL8125::setupRTL8125()
+void LucyRTL8125::rtl812xHwInit(struct rtl8125_private *tp)
 {
-    struct rtl8125_private *tp = &linuxData;
-    UInt32 i;
+    u32 csi_tmp;
+
+    rtl8125_enable_aspm_clkreq_lock(tp, 0);
+    rtl8125_enable_force_clkreq(tp, 0);
+
+    rtl8125_set_reg_oobs_en_sel(tp, true);
+
+    //Disable UPS
+    rtl8125_mac_ocp_write(tp, 0xD40A, rtl8125_mac_ocp_read(tp, 0xD40A) & ~(BIT_4));
+
+#ifndef ENABLE_USE_FIRMWARE_FILE
+    rtl8125_hw_mac_mcu_config(tp);
+#endif
+
+    /*disable ocp phy power saving*/
+    if (tp->mcfg == CFG_METHOD_2 ||
+        tp->mcfg == CFG_METHOD_3 ||
+        tp->mcfg == CFG_METHOD_6)
+            rtl8125_disable_ocp_phy_power_saving(tp);
+
+    //Set PCIE uncorrectable error status mask pcie 0x108
+    csi_tmp = rtl8125_csi_read(tp, 0x108);
+    csi_tmp |= BIT_20;
+    rtl8125_csi_write(tp, 0x108, csi_tmp);
+
+    rtl8125_enable_cfg9346_write(tp);
+    rtl8125_disable_linkchg_wakeup(tp);
+    rtl8125_disable_cfg9346_write(tp);
+    rtl8125_disable_magic_packet(tp);
+    rtl8125_disable_d0_speedup(tp);
+    
+    rtl8125_enable_magic_packet(tp);
+
+#ifdef ENABLE_USE_FIRMWARE_FILE
+    if (tp->rtl_fw && !tp->resume_not_chg_speed)
+        rtl8125_apply_firmware(tp);
+#endif
+}
+
+void LucyRTL8125::rtl812xHwConfig(struct rtl8125_private *tp)
+{
+    //UInt32 i;
+    int timeout;
     UInt16 mac_ocp_data;
     
-    RTL_W32(tp, RxConfig, (RX_DMA_BURST << RxCfgDMAShift));
+    rtl8125_disable_rx_packet_filter(tp);
     
     rtl8125_nic_reset(tp);
     
     RTL_W8(tp, Cfg9346, RTL_R8(tp, Cfg9346) | Cfg9346_Unlock);
     
-    switch (tp->mcfg) {
-        case CFG_METHOD_2:
-        case CFG_METHOD_3:
-        case CFG_METHOD_4:
-        case CFG_METHOD_5:
-            RTL_W8(tp, 0xF1, RTL_R8(tp, 0xF1) & ~BIT_7);
-            RTL_W8(tp, Config2, RTL_R8(tp, Config2) & ~BIT_7);
-            RTL_W8(tp, Config5, RTL_R8(tp, Config5) & ~BIT_0);
-            break;
-    }
+    rtl8125_enable_force_clkreq(tp, 0);
+    rtl8125_enable_aspm_clkreq_lock(tp, 0);
 
     //clear io_rdy_l23
     switch (tp->mcfg) {
@@ -649,7 +556,7 @@ void LucyRTL8125::setupRTL8125()
             RTL_W8(tp, Config3, RTL_R8(tp, Config3) & ~BIT_1);
             break;
     }
-
+/*
     switch (tp->mcfg) {
         case CFG_METHOD_2:
         case CFG_METHOD_3:
@@ -659,22 +566,20 @@ void LucyRTL8125::setupRTL8125()
             for (i=0xA00; i<0xB00; i+=4)
                     RTL_W32(tp, i, 0x00000000);
             break;
-    }
+    }*/
+    RTL_W16(tp, EEE_TXIDLE_TIMER_8125, tp->eee.tx_lpi_timer);
 
-    //keep magic packet only
-    switch (tp->mcfg) {
-        case CFG_METHOD_2:
-        case CFG_METHOD_3:
-        case CFG_METHOD_4:
-        case CFG_METHOD_5:
-            mac_ocp_data = rtl8125_mac_ocp_read(tp, 0xC0B6);
-            mac_ocp_data &= BIT_0;
-            rtl8125_mac_ocp_write(tp, 0xC0B6, mac_ocp_data);
-            break;
-    }
+    /* Keep magic packet only. */
+    mac_ocp_data = rtl8125_mac_ocp_read(tp, 0xC0B6);
+    mac_ocp_data &= BIT_0;
+    rtl8125_mac_ocp_write(tp, 0xC0B6, mac_ocp_data);
+
     /* Fill tally counter address. */
     RTL_W32(tp, CounterAddrHigh, (statPhyAddr >> 32));
     RTL_W32(tp, CounterAddrLow, (statPhyAddr & 0x00000000ffffffff));
+
+    /* Enable extended tally counter. */
+    rtl8125_set_mac_ocp_bit(tp, 0xEA84, (BIT_1 | BIT_0));
 
     /* Setup the descriptor rings. */
     txTailPtr0 = txClosePtr0 = 0;
@@ -682,6 +587,7 @@ void LucyRTL8125::setupRTL8125()
     txNumFreeDesc = kNumTxDesc;
     rxNextDescIndex = 0;
     
+    /* Fill in the decriptor ring addresses. */
     RTL_W32(tp, TxDescStartAddrLow, (txPhyAddr & 0x00000000ffffffff));
     RTL_W32(tp, TxDescStartAddrHigh, (txPhyAddr >> 32));
     RTL_W32(tp, RxDescAddrLow, (rxPhyAddr & 0x00000000ffffffff));
@@ -691,132 +597,153 @@ void LucyRTL8125::setupRTL8125()
     RTL_W32(tp, TxConfig, (TX_DMA_BURST_unlimited << TxDMAShift) |
             (InterFrameGap << TxInterFrameGapShift));
 
-    if (tp->EnableTxNoClose)
-            RTL_W32(tp, TxConfig, (RTL_R32(tp, TxConfig) | BIT_6));
+    /* Enable TxNoClose. */
+    RTL_W32(tp, TxConfig, (RTL_R32(tp, TxConfig) | BIT_6));
     
-    if (tp->mcfg == CFG_METHOD_2 ||
-        tp->mcfg == CFG_METHOD_3 ||
-        tp->mcfg == CFG_METHOD_4 ||
-        tp->mcfg == CFG_METHOD_5) {
-        set_offset70F(tp, 0x27);
-        setOffset79(0x50);
+    rtl8125_set_l1_l0s_entry_latency(tp);
+    rtl812xSetMrrs(tp, 0x50);
 
+    /* Enable TCAM. */
+    if (tp->HwSuppTcamVer == 1)
         RTL_W16(tp, 0x382, 0x221B);
 
-        /* Disable RSS. */
-        RTL_W8(tp, RSS_CTRL_8125, 0x00);
-        RTL_W16(tp, Q_NUM_CTRL_8125, 0x0000);
+    /* Disable RSS. */
+    RTL_W8(tp, RSS_CTRL_8125, 0x00);
+    RTL_W16(tp, Q_NUM_CTRL_8125, 0x0000);
 
-        RTL_W8(tp, Config1, RTL_R8(tp, Config1) & ~0x10);
+    /* Meaning unknown. */
+    RTL_W8(tp, Config1, RTL_R8(tp, Config1) & ~0x10);
 
-        rtl8125_mac_ocp_write(tp, 0xC140, 0xFFFF);
-        rtl8125_mac_ocp_write(tp, 0xC142, 0xFFFF);
+    rtl8125_mac_ocp_write(tp, 0xC140, 0xFFFF);
+    rtl8125_mac_ocp_write(tp, 0xC142, 0xFFFF);
 
-        /*
-         * Disabling the new tx descriptor format seems to prevent
-         * tx timeouts when using TSO.
-         */
-        mac_ocp_data = rtl8125_mac_ocp_read(tp, 0xEB58);
-        //mac_ocp_data |= (BIT_0);
+    /*
+     * Disabling the new tx descriptor format seems to prevent
+     * tx timeouts when using TSO.
+     */
+    mac_ocp_data = rtl8125_mac_ocp_read(tp, 0xEB58);
+    
+    if (tp->mcfg == CFG_METHOD_32 || tp->mcfg == CFG_METHOD_33)
+        mac_ocp_data &= ~(BIT_0 | BIT_1);
+    else
         mac_ocp_data &= ~(BIT_0);
-        rtl8125_mac_ocp_write(tp, 0xEB58, mac_ocp_data);
+    
+    rtl8125_mac_ocp_write(tp, 0xEB58, mac_ocp_data);
 
-        mac_ocp_data = rtl8125_mac_ocp_read(tp, 0xE614);
-        mac_ocp_data &= ~( BIT_10 | BIT_9 | BIT_8);
-        if (tp->mcfg == CFG_METHOD_4 || tp->mcfg == CFG_METHOD_5) {
-            mac_ocp_data |= ((2 & 0x07) << 8);
-        } else {
-            if (tp->DASH && !(csiFun0ReadByte(0x79) & BIT_0))
-                mac_ocp_data |= ((3 & 0x07) << 8);
-            else
-                mac_ocp_data |= ((4 & 0x07) << 8);
-        }
-        rtl8125_mac_ocp_write(tp, 0xE614, mac_ocp_data);
-        
-        //rtl8125_set_tx_q_num(tp, tp->HwSuppNumTxQueues);
-        
-        /* Set tx queue num to one. */
-        mac_ocp_data = rtl8125_mac_ocp_read(tp, 0xE63E);
-        mac_ocp_data &= ~(BIT_11 | BIT_10);
-        mac_ocp_data |= ((0 & 0x03) << 10);
-        rtl8125_mac_ocp_write(tp, 0xE63E, mac_ocp_data);
+    mac_ocp_data = rtl8125_mac_ocp_read(tp, 0xE614);
+    mac_ocp_data &= ~( BIT_10 | BIT_9 | BIT_8);
+    
+    if (tp->mcfg == CFG_METHOD_31 || tp->mcfg == CFG_METHOD_32 ||
+        tp->mcfg == CFG_METHOD_33) {
+        /* RTL8126A */
+        mac_ocp_data |= 0x0400;
+    } else if (tp->mcfg == CFG_METHOD_4 || tp->mcfg == CFG_METHOD_5) {
+        /* RTL8125B */
+        mac_ocp_data |= 0x0200;
+    } else {
+        mac_ocp_data |= 0x0300;
+    }
+    rtl8125_mac_ocp_write(tp, 0xE614, mac_ocp_data);
+    
+    //rtl8125_set_tx_q_num(tp, tp->HwSuppNumTxQueues);
+    
+    /* Set tx queue num to one. */
+    mac_ocp_data = rtl8125_mac_ocp_read(tp, 0xE63E);
+    mac_ocp_data &= ~(BIT_11 | BIT_10);
+    //mac_ocp_data |= ((0 & 0x03) << 10);
+    rtl8125_mac_ocp_write(tp, 0xE63E, mac_ocp_data);
 
-        mac_ocp_data = rtl8125_mac_ocp_read(tp, 0xE63E);
-        mac_ocp_data &= ~(BIT_5 | BIT_4);
-        
-        if (tp->mcfg == CFG_METHOD_2 || tp->mcfg == CFG_METHOD_3)
-            mac_ocp_data |= ((0x02 & 0x03) << 4);
-        
-        rtl8125_mac_ocp_write(tp, 0xE63E, mac_ocp_data);
-        
-        mac_ocp_data = rtl8125_mac_ocp_read(tp, 0xC0B4);
-        mac_ocp_data &= ~BIT_0;
-        rtl8125_mac_ocp_write(tp, 0xC0B4, mac_ocp_data);
-        mac_ocp_data |= BIT_0;
-        rtl8125_mac_ocp_write(tp, 0xC0B4, mac_ocp_data);
-        
-        mac_ocp_data = rtl8125_mac_ocp_read(tp, 0xC0B4);
-        mac_ocp_data |= (BIT_3|BIT_2);
-        rtl8125_mac_ocp_write(tp, 0xC0B4, mac_ocp_data);
-        
-        mac_ocp_data = rtl8125_mac_ocp_read(tp, 0xEB6A);
-        mac_ocp_data &= ~(BIT_7 | BIT_6 | BIT_5 | BIT_4 | BIT_3 | BIT_2 | BIT_1 | BIT_0);
-        mac_ocp_data |= (BIT_5 | BIT_4 | BIT_1 | BIT_0);
-        rtl8125_mac_ocp_write(tp, 0xEB6A, mac_ocp_data);
-        
-        mac_ocp_data = rtl8125_mac_ocp_read(tp, 0xEB50);
-        mac_ocp_data &= ~(BIT_9 | BIT_8 | BIT_7 | BIT_6 | BIT_5);
-        mac_ocp_data |= (BIT_6);
-        rtl8125_mac_ocp_write(tp, 0xEB50, mac_ocp_data);
-        
-        mac_ocp_data = rtl8125_mac_ocp_read(tp, 0xE056);
-        mac_ocp_data &= ~(BIT_7 | BIT_6 | BIT_5 | BIT_4);
-        mac_ocp_data |= (BIT_4 | BIT_5);
-        rtl8125_mac_ocp_write(tp, 0xE056, mac_ocp_data);
-        
-        RTL_W8(tp, TDFNR, 0x10);
-        
-        RTL_W8(tp, 0xD0, RTL_R8(tp, 0xD0) | BIT_7);
-        
-        mac_ocp_data = rtl8125_mac_ocp_read(tp, 0xE040);
-        mac_ocp_data &= ~(BIT_12);
-        rtl8125_mac_ocp_write(tp, 0xE040, mac_ocp_data);
-        
-        mac_ocp_data = rtl8125_mac_ocp_read(tp, 0xEA1C);
-        mac_ocp_data &= ~(BIT_1 | BIT_0);
-        mac_ocp_data |= (BIT_0);
-        rtl8125_mac_ocp_write(tp, 0xEA1C, mac_ocp_data);
-        
-        mac_ocp_data = rtl8125_mac_ocp_read(tp, 0xE0C0);
-        mac_ocp_data &= ~(BIT_14 | BIT_11 | BIT_10 | BIT_9 | BIT_8 | BIT_3 | BIT_2 | BIT_1 | BIT_0);
-        mac_ocp_data |= (BIT_14 | BIT_10 | BIT_1 | BIT_0);
-        rtl8125_mac_ocp_write(tp, 0xE0C0, mac_ocp_data);
-        
-        SetMcuAccessRegBit(tp, 0xE052, (BIT_6|BIT_5|BIT_3));
-        ClearMcuAccessRegBit(tp, 0xE052, BIT_7);
-        
-        mac_ocp_data = rtl8125_mac_ocp_read(tp, 0xD430);
-        mac_ocp_data &= ~(BIT_11 | BIT_10 | BIT_9 | BIT_8 | BIT_7 | BIT_6 | BIT_5 | BIT_4 | BIT_3 | BIT_2 | BIT_1 | BIT_0);
-        mac_ocp_data |= 0x47F;
-        rtl8125_mac_ocp_write(tp, 0xD430, mac_ocp_data);
-        
-        //rtl8125_mac_ocp_write(tp, 0xE0C0, 0x4F87);
-        RTL_W8(tp, 0xD0, RTL_R8(tp, 0xD0) | BIT_6 | BIT_7);
-        
-        if (tp->mcfg == CFG_METHOD_2 || tp->mcfg == CFG_METHOD_3)
-            RTL_W8(tp, 0xD3, RTL_R8(tp, 0xD3) | BIT_0);
-        
-        rtl8125_disable_eee_plus(tp);
-        
-        mac_ocp_data = rtl8125_mac_ocp_read(tp, 0xEA1C);
-        mac_ocp_data &= ~(BIT_2);
-        rtl8125_mac_ocp_write(tp, 0xEA1C, mac_ocp_data);
-        
+    mac_ocp_data = rtl8125_mac_ocp_read(tp, 0xE63E);
+    mac_ocp_data &= ~(BIT_5 | BIT_4);
+    
+    if (tp->mcfg == CFG_METHOD_2 || tp->mcfg == CFG_METHOD_3)
+        mac_ocp_data |= ((0x02 & 0x03) << 4);
+    
+    rtl8125_mac_ocp_write(tp, 0xE63E, mac_ocp_data);
+    
+    /* Disable MCU. */
+    mac_ocp_data = rtl8125_mac_ocp_read(tp, 0xC0B4);
+    mac_ocp_data &= ~BIT_0;
+    rtl8125_mac_ocp_write(tp, 0xC0B4, mac_ocp_data);
+    
+    /* Reenable MCU. */
+    mac_ocp_data |= BIT_0;
+    rtl8125_mac_ocp_write(tp, 0xC0B4, mac_ocp_data);
+    
+    mac_ocp_data = rtl8125_mac_ocp_read(tp, 0xC0B4);
+    mac_ocp_data |= (BIT_3|BIT_2);
+    rtl8125_mac_ocp_write(tp, 0xC0B4, mac_ocp_data);
+    
+    mac_ocp_data = rtl8125_mac_ocp_read(tp, 0xEB6A);
+    mac_ocp_data &= ~(BIT_7 | BIT_6 | BIT_5 | BIT_4 | BIT_3 | BIT_2 | BIT_1 | BIT_0);
+    mac_ocp_data |= (BIT_5 | BIT_4 | BIT_1 | BIT_0);
+    rtl8125_mac_ocp_write(tp, 0xEB6A, mac_ocp_data);
+    
+    mac_ocp_data = rtl8125_mac_ocp_read(tp, 0xEB50);
+    mac_ocp_data &= ~(BIT_9 | BIT_8 | BIT_7 | BIT_6 | BIT_5);
+    mac_ocp_data |= (BIT_6);
+    rtl8125_mac_ocp_write(tp, 0xEB50, mac_ocp_data);
+    
+    mac_ocp_data = rtl8125_mac_ocp_read(tp, 0xE056);
+    mac_ocp_data &= ~(BIT_7 | BIT_6 | BIT_5 | BIT_4);
+    mac_ocp_data |= (BIT_4 | BIT_5);
+    rtl8125_mac_ocp_write(tp, 0xE056, mac_ocp_data);
+    
+    RTL_W8(tp, TDFNR, 0x10);
+    
+    RTL_W8(tp, 0xD0, RTL_R8(tp, 0xD0) | BIT_7);
+    
+    mac_ocp_data = rtl8125_mac_ocp_read(tp, 0xE040);
+    mac_ocp_data &= ~(BIT_12);
+    rtl8125_mac_ocp_write(tp, 0xE040, mac_ocp_data);
+    
+    mac_ocp_data = rtl8125_mac_ocp_read(tp, 0xEA1C);
+    mac_ocp_data &= ~(BIT_1 | BIT_0);
+    mac_ocp_data |= (BIT_0);
+    rtl8125_mac_ocp_write(tp, 0xEA1C, mac_ocp_data);
+    
+    mac_ocp_data = rtl8125_mac_ocp_read(tp, 0xE0C0);
+    mac_ocp_data &= ~(BIT_14 | BIT_11 | BIT_10 | BIT_9 | BIT_8 | BIT_3 | BIT_2 | BIT_1 | BIT_0);
+    mac_ocp_data |= (BIT_14 | BIT_10 | BIT_1 | BIT_0);
+    rtl8125_mac_ocp_write(tp, 0xE0C0, mac_ocp_data);
+    
+    SetMcuAccessRegBit(tp, 0xE052, (BIT_6|BIT_5|BIT_3));
+    ClearMcuAccessRegBit(tp, 0xE052, BIT_7);
+    
+    mac_ocp_data = rtl8125_mac_ocp_read(tp, 0xD430);
+    mac_ocp_data &= ~(BIT_11 | BIT_10 | BIT_9 | BIT_8 | BIT_7 | BIT_6 | BIT_5 | BIT_4 | BIT_3 | BIT_2 | BIT_1 | BIT_0);
+    mac_ocp_data |= 0x47F;
+    rtl8125_mac_ocp_write(tp, 0xD430, mac_ocp_data);
+    
+    //rtl8125_mac_ocp_write(tp, 0xE0C0, 0x4F87);
+    RTL_W8(tp, 0xD0, RTL_R8(tp, 0xD0) | BIT_6 | BIT_7);
+    
+    if (tp->mcfg == CFG_METHOD_2 || tp->mcfg == CFG_METHOD_3)
+        RTL_W8(tp, 0xD3, RTL_R8(tp, 0xD3) | BIT_0);
+    
+    rtl8125_disable_eee_plus(tp);
+    
+    mac_ocp_data = rtl8125_mac_ocp_read(tp, 0xEA1C);
+    mac_ocp_data &= ~(BIT_2);
+    
+    if (tp->mcfg == CFG_METHOD_32 || tp->mcfg == CFG_METHOD_33)
+        mac_ocp_data &= ~(BIT_9 | BIT_8);
+
+    rtl8125_mac_ocp_write(tp, 0xEA1C, mac_ocp_data);
+
+    /* Disable rx decriptor type 4. */
+    if (tp->HwSuppRxDescType == RX_DESC_RING_TYPE_4)
+        RTL_W8(tp, 0xd8, RTL_R8(tp, 0xd8) & ~EnableRxDescV4_0);
+
+    /* Clear tcam entries. */
+    if (HW_SUPPORT_TCAM(tp)) {
         SetMcuAccessRegBit(tp, 0xEB54, BIT_0);
         udelay(1);
         ClearMcuAccessRegBit(tp, 0xEB54, BIT_0);
-        RTL_W16(tp, 0x1880, RTL_R16(tp, 0x1880) & ~(BIT_4 | BIT_5));
     }
+
+    RTL_W16(tp, 0x1880, RTL_R16(tp, 0x1880) & ~(BIT_4 | BIT_5));
+
     //other hw parameters
     rtl8125_hw_clear_timer_int(tp);
 
@@ -824,35 +751,21 @@ void LucyRTL8125::setupRTL8125()
 
     rtl8125_enable_exit_l1_mask(tp);
 
-    switch (tp->mcfg) {
-        case CFG_METHOD_2:
-        case CFG_METHOD_3:
-        case CFG_METHOD_4:
-        case CFG_METHOD_5:
-            rtl8125_mac_ocp_write(tp, 0xE098, 0xC302);
-            break;
-    }
+    /* Meaning unknown. */
+    rtl8125_mac_ocp_write(tp, 0xE098, 0xC302);
 
-    switch (tp->mcfg) {
-        case CFG_METHOD_2:
-        case CFG_METHOD_3:
-        case CFG_METHOD_4:
-        case CFG_METHOD_5:
-            if (linuxData.configASPM) {
-                initPCIOffset99();
-            }
-            break;
-    }
-    switch (tp->mcfg) {
-        case CFG_METHOD_2:
-        case CFG_METHOD_3:
-        case CFG_METHOD_4:
-        case CFG_METHOD_5:
-            if (linuxData.configASPM) {
-                rtl8125_init_pci_offset_180(tp);
-            }
-            break;
-    }
+    if (enableASPM && (tp->org_pci_offset_99 & (BIT_2 | BIT_5 | BIT_6)))
+        rtl8125_init_pci_offset_99(tp);
+    else
+        rtl8125_disable_pci_offset_99(tp);
+
+    if (enableASPM && (tp->org_pci_offset_180 & rtl8125_get_l1off_cap_bits(tp)))
+        rtl8125_init_pci_offset_180(tp);
+    else
+        rtl8125_disable_pci_offset_180(tp);
+
+    if (tp->RequiredPfmPatch)
+        rtl8125_set_pfm_patch(tp, 0);
 
     tp->cp_cmd &= ~(EnableBist | Macdbgo_oe | Force_halfdup |
                     Force_rxflow_en | Force_txflow_en | Cxpl_dbg_sel |
@@ -860,50 +773,29 @@ void LucyRTL8125::setupRTL8125()
 
     RTL_W16(tp, CPlusCmd, tp->cp_cmd);
 
-    switch (tp->mcfg) {
-        case CFG_METHOD_2:
-        case CFG_METHOD_3:
-        case CFG_METHOD_4:
-        case CFG_METHOD_5: {
-            int timeout;
-            for (timeout = 0; timeout < 10; timeout++) {
-                if ((rtl8125_mac_ocp_read(tp, 0xE00E) & BIT_13)==0)
-                    break;
-                mdelay(1);
-            }
-        }
-        break;
+    for (timeout = 0; timeout < 10; timeout++) {
+        if ((rtl8125_mac_ocp_read(tp, 0xE00E) & BIT_13) == 0)
+            break;
+        mdelay(1);
     }
-    /*
-     * Make sure that a packet fits into one buffer or there
-     * will be trouble.
-     */
-    RTL_W16(tp, RxMaxSize, mtu + (ETH_HLEN + VLAN_HLEN + ETH_FCS_LEN));
-    
+    /* Adjust the maximum receive size to mtu. */
+    //RTL_W16(tp, RxMaxSize, mtu + (ETH_HLEN + VLAN_HLEN + ETH_FCS_LEN));
+    rtl8125_set_rms(tp, tp->rms);
+
     rtl8125_disable_rxdvgate(tp);
 
     /* Set receiver mode. */
     setMulticastMode(test_bit(__M_CAST, &stateFlags));
+    
+    if (test_bit(__PROMISC, &stateFlags))
+        setPromiscuousMode(true);
 
     #ifdef ENABLE_DASH_SUPPORT
             if (tp->DASH && !tp->dash_printer_enabled)
                     NICChkTypeEnableDashInterrupt(tp);
     #endif
 
-    switch (tp->mcfg) {
-        case CFG_METHOD_2:
-        case CFG_METHOD_3:
-        case CFG_METHOD_4:
-        case CFG_METHOD_5:
-            if (linuxData.configASPM) {
-                RTL_W8(tp, Config5, RTL_R8(tp, Config5) | BIT_0);
-                RTL_W8(tp, Config2, RTL_R8(tp, Config2) | BIT_7);
-            } else {
-                RTL_W8(tp, Config2, RTL_R8(tp, Config2) & ~BIT_7);
-                RTL_W8(tp, Config5, RTL_R8(tp, Config5) & ~BIT_0);
-            }
-            break;
-    }
+    rtl8125_enable_aspm_clkreq_lock(tp, enableASPM ? 1 : 0);
 
     RTL_W8(tp, Cfg9346, RTL_R8(tp, Cfg9346) & ~Cfg9346_Unlock);
     
@@ -913,106 +805,216 @@ void LucyRTL8125::setupRTL8125()
     udelay(10);
 }
 
-void LucyRTL8125::setPhyMedium()
+void LucyRTL8125::rtl812xSetOffloadFeatures(bool active)
 {
-    struct rtl8125_private *tp = netdev_priv(&linuxData);
+    ifnet_t ifnet = netif->getIfnet();
+    ifnet_offload_t offload;
+    UInt32 mask = 0;
+
+    if (enableTSO4)
+        mask |= IFNET_TSO_IPV4;
+    
+    if (enableTSO6)
+        mask |= IFNET_TSO_IPV6;
+
+    offload = ifnet_offload(ifnet);
+    
+    if (active) {
+        offload |= mask;
+        DebugLog("Enable hardware offload features: %x!\n", mask);
+    } else {
+        offload &= ~mask;
+        DebugLog("Disable hardware offload features: %x!\n", mask);
+    }
+    
+    if (ifnet_set_offload(ifnet, offload))
+        IOLog("Error setting hardware offload: %x!\n", offload);
+}
+
+void LucyRTL8125::rtl812xSetPhyMedium(struct rtl8125_private *tp, UInt8 autoneg, UInt32 speed, UInt8 duplex, UInt64 adv)
+{
     int auto_nego = 0;
     int giga_ctrl = 0;
     int ctrl_2500 = 0;
+
+    DebugLog("speed: %u, duplex: %u, adv: %llx\n", static_cast<unsigned int>(speed), duplex, adv);
     
-    if (speed != SPEED_2500 && (speed != SPEED_1000) &&
-        (speed != SPEED_100) && (speed != SPEED_10)) {
+    if (!rtl8125_is_speed_mode_valid(speed)) {
+        if (HW_SUPP_PHY_LINK_SPEED_5000M(tp))
+            speed = SPEED_5000;
+        else if (HW_SUPP_PHY_LINK_SPEED_2500M(tp))
+            speed = SPEED_2500;
+        else
+            speed = SPEED_1000;
+
         duplex = DUPLEX_FULL;
-        autoneg = AUTONEG_ENABLE;
+        adv |= tp->advertising;
     }
+    
     /* Enable or disable EEE support according to selected medium. */
-    if ((linuxData.eee_adv_t != 0) && (autoneg == AUTONEG_ENABLE)) {
+    if (tp->eee.eee_enabled && (autoneg == AUTONEG_ENABLE)) {
         rtl8125_enable_eee(tp);
         DebugLog("Enable EEE support.\n");
     } else {
         rtl8125_disable_eee(tp);
         DebugLog("Disable EEE support.\n");
     }
-    //Disable Giga Lite
-    ClearEthPhyOcpBit(tp, 0xA428, BIT_9);
-    ClearEthPhyOcpBit(tp, 0xA5EA, BIT_0);
+    rtl8125_disable_giga_lite(tp);
 
     giga_ctrl = rtl8125_mdio_read(tp, MII_CTRL1000);
     giga_ctrl &= ~(ADVERTISE_1000HALF | ADVERTISE_1000FULL);
-    
     ctrl_2500 = mdio_direct_read_phy_ocp(tp, 0xA5D4);
-    ctrl_2500 &= ~(RTK_ADVERTISE_2500FULL);
-    
-    auto_nego = rtl8125_mdio_read(tp, MII_ADVERTISE);
-    auto_nego &= ~(ADVERTISE_10HALF | ADVERTISE_10FULL |
-                   ADVERTISE_100HALF | ADVERTISE_100FULL |
-                   ADVERTISE_PAUSE_CAP | ADVERTISE_PAUSE_ASYM);
+    ctrl_2500 &= ~(RTK_ADVERTISE_2500FULL | RTK_ADVERTISE_5000FULL);
 
     if (autoneg == AUTONEG_ENABLE) {
-        /* The default medium has been selected. */
-        auto_nego |= (ADVERTISE_10HALF | ADVERTISE_10FULL | ADVERTISE_100HALF | ADVERTISE_100FULL);
-        giga_ctrl |= ADVERTISE_1000FULL;
-        ctrl_2500 |= RTK_ADVERTISE_2500FULL;
-    } else if (speed == SPEED_2500) {
-        ctrl_2500 |= RTK_ADVERTISE_2500FULL;
-    } else if (speed == SPEED_1000) {
-        if (duplex == DUPLEX_HALF) {
-            giga_ctrl |= ADVERTISE_1000HALF;
-        } else {
-            giga_ctrl |= ADVERTISE_1000FULL;
+        /*n-way force*/
+        auto_nego = rtl8125_mdio_read(tp, MII_ADVERTISE);
+        auto_nego &= ~(ADVERTISE_10HALF | ADVERTISE_10FULL |
+                       ADVERTISE_100HALF | ADVERTISE_100FULL |
+                       ADVERTISE_PAUSE_CAP | ADVERTISE_PAUSE_ASYM);
+
+        if (adv & ADVERTISED_10baseT_Half)
+                auto_nego |= ADVERTISE_10HALF;
+        
+        if (adv & ADVERTISED_10baseT_Full)
+                auto_nego |= ADVERTISE_10FULL;
+        
+        if (adv & ADVERTISED_100baseT_Half)
+                auto_nego |= ADVERTISE_100HALF;
+        
+        if (adv & ADVERTISED_100baseT_Full)
+                auto_nego |= ADVERTISE_100FULL;
+        
+        if (adv & ADVERTISED_1000baseT_Half)
+                giga_ctrl |= ADVERTISE_1000HALF;
+        
+        if (adv & ADVERTISED_1000baseT_Full)
+                giga_ctrl |= ADVERTISE_1000FULL;
+        
+        if (adv & ADVERTISED_2500baseX_Full)
+                ctrl_2500 |= RTK_ADVERTISE_2500FULL;
+        
+        if (HW_SUPP_PHY_LINK_SPEED_5000M(tp)) {
+            if (adv & RTK_ADVERTISED_5000baseX_Full)
+                ctrl_2500 |= RTK_ADVERTISE_5000FULL;
         }
-    } else if (speed == SPEED_100) {
-        if (duplex == DUPLEX_HALF) {
-            auto_nego |= ADVERTISE_100HALF;
-        } else {
-            auto_nego |=  ADVERTISE_100FULL;
-        }
-    } else { /* speed == SPEED_10 */
-        if (duplex == DUPLEX_HALF) {
-            auto_nego |= ADVERTISE_10HALF;
-        } else {
-            auto_nego |= ADVERTISE_10FULL;
-        }
+
+        //flow control
+        if (tp->fcpause == rtl8125_fc_full)
+            auto_nego |= ADVERTISE_PAUSE_CAP | ADVERTISE_PAUSE_ASYM;
+
+        tp->phy_auto_nego_reg = auto_nego;
+        tp->phy_1000_ctrl_reg = giga_ctrl;
+
+        tp->phy_2500_ctrl_reg = ctrl_2500;
+
+        rtl8125_mdio_write(tp, 0x1f, 0x0000);
+        rtl8125_mdio_write(tp, MII_ADVERTISE, auto_nego);
+        rtl8125_mdio_write(tp, MII_CTRL1000, giga_ctrl);
+        mdio_direct_write_phy_ocp(tp, 0xA5D4, ctrl_2500);
+        rtl8125_phy_restart_nway(tp);
+    } else {
+        /*true force*/
+        if (speed == SPEED_10 || speed == SPEED_100)
+            rtl8125_phy_setup_force_mode(tp, speed, duplex);
+        else
+            return;
     }
-    /* Set flow control support. */
-    if (flowCtl == kFlowControlOn)
-        auto_nego |= (ADVERTISE_PAUSE_CAP | ADVERTISE_PAUSE_ASYM);
-
-    tp->phy_auto_nego_reg = auto_nego;
-    tp->phy_1000_ctrl_reg = giga_ctrl;
-
-    tp->phy_2500_ctrl_reg = ctrl_2500;
-
-    rtl8125_mdio_write(tp, 0x1f, 0x0000);
-    rtl8125_mdio_write(tp, MII_ADVERTISE, auto_nego);
-    rtl8125_mdio_write(tp, MII_CTRL1000, giga_ctrl);
-    mdio_direct_write_phy_ocp(tp, 0xA5D4, ctrl_2500);
-    rtl8125_phy_restart_nway(tp);
-    mdelay(20);
-
-    tp->autoneg = AUTONEG_ENABLE;
+    tp->autoneg = autoneg;
     tp->speed = speed;
     tp->duplex = duplex;
+    tp->advertising = adv;
+
+    rtl8125_set_d0_speedup_speed(tp);
+}
+
+void LucyRTL8125::rtl812xLinkOnPatch(struct rtl8125_private *tp)
+{
+    UInt32 status;
+
+    rtl812xHwConfig(tp);
+
+    status = RTL_R32(tp, PHYstatus);
+
+    if (tp->mcfg == CFG_METHOD_2) {
+        if (status & FullDup)
+            RTL_W32(tp, TxConfig, (RTL_R32(tp, TxConfig) | (BIT_24 | BIT_25)) & ~BIT_19);
+        else
+            RTL_W32(tp, TxConfig, (RTL_R32(tp, TxConfig) | BIT_25) & ~(BIT_19 | BIT_24));
+    }
+
+    switch (tp->mcfg) {
+        case CFG_METHOD_2:
+        case CFG_METHOD_3:
+        case CFG_METHOD_4:
+        case CFG_METHOD_5:
+        case CFG_METHOD_6:
+        case CFG_METHOD_7:
+        case CFG_METHOD_8:
+        case CFG_METHOD_9:
+        case CFG_METHOD_12:
+        case CFG_METHOD_31:
+        case CFG_METHOD_32:
+        case CFG_METHOD_33:
+            if (status & _10bps)
+                rtl8125_enable_eee_plus(tp);
+            break;
+            
+        default:
+            break;
+    }
+
+    if (tp->RequiredPfmPatch)
+        rtl8125_set_pfm_patch(tp, (status & _10bps) ? 1 : 0);
+    
+    tp->phy_reg_aner = rtl8125_mdio_read(tp, MII_EXPANSION);
+    tp->phy_reg_anlpar = rtl8125_mdio_read(tp, MII_LPA);
+    tp->phy_reg_gbsr = rtl8125_mdio_read(tp, MII_STAT1000);
+    tp->phy_reg_status_2500 = mdio_direct_read_phy_ocp(tp, 0xA5D6);
+}
+
+void LucyRTL8125::rtl812xLinkDownPatch(struct rtl8125_private *tp)
+{
+    tp->phy_reg_aner = 0;
+    tp->phy_reg_anlpar = 0;
+    tp->phy_reg_gbsr = 0;
+    tp->phy_reg_status_2500 = 0;
+
+    switch (tp->mcfg) {
+        case CFG_METHOD_2:
+        case CFG_METHOD_3:
+        case CFG_METHOD_4:
+        case CFG_METHOD_5:
+        case CFG_METHOD_6:
+        case CFG_METHOD_7:
+        case CFG_METHOD_8:
+        case CFG_METHOD_9:
+        case CFG_METHOD_12:
+            rtl8125_disable_eee_plus(tp);
+            break;
+            
+        default:
+            break;
+    }
+    if (tp->RequiredPfmPatch)
+        rtl8125_set_pfm_patch(tp, 1);
+
+    rtl8125_hw_reset(tp);
 }
 
 /* Set PCI configuration space offset 0x79 to setting. */
 
-void LucyRTL8125::setOffset79(UInt8 setting)
+void LucyRTL8125::rtl812xSetMrrs(struct rtl8125_private *tp, UInt8 setting)
 {
-    UInt8 deviceControl;
+    UInt8 devctl;
     
-    DebugLog("setOffset79() ===>\n");
-    
-    if (!(linuxData.hwoptimize & HW_PATCH_SOC_LAN)) {
-        deviceControl = pciDevice->configRead8(0x79);
-        deviceControl &= ~0x70;
-        deviceControl |= setting;
-        pciDevice->configWrite8(0x79, deviceControl);
-    }
-    
-    DebugLog("setOffset79() <===\n");
+    devctl = pciDevice->extendedConfigRead8(0x79);
+    devctl &= ~0x70;
+    devctl |= setting;
+    pciDevice->extendedConfigWrite8(0x79, devctl);
 }
 
+/*
 UInt8 LucyRTL8125::csiFun0ReadByte(UInt32 addr)
 {
     struct rtl8125_private *tp = &linuxData;
@@ -1065,7 +1067,7 @@ void LucyRTL8125::enablePCIOffset99()
         case CFG_METHOD_3:
         case CFG_METHOD_4:
         case CFG_METHOD_5:
-            csiFun0WriteByte(0x99, linuxData.org_pci_offset_99);
+            rtl8125_csi_fun0_write_byte(tp, 0x99, linuxData.org_pci_offset_99);
             break;
     }
     
@@ -1106,7 +1108,7 @@ void LucyRTL8125::disablePCIOffset99()
         case CFG_METHOD_3:
         case CFG_METHOD_4:
         case CFG_METHOD_5:
-            csiFun0WriteByte(0x99, 0x00);
+            rtl8125_csi_fun0_write_byte(tp, 0x99, 0x00);
             break;
     }
 }
@@ -1165,7 +1167,7 @@ void LucyRTL8125::setPCI99_180ExitDriverPara()
         case CFG_METHOD_3:
         case CFG_METHOD_4:
         case CFG_METHOD_5:
-            disablePCIOffset99();
+            rtl8125_disable_pci_offset_99(tp);
             break;
     }
     switch (tp->mcfg) {
@@ -1182,7 +1184,7 @@ void LucyRTL8125::hardwareD3Para()
 {
     struct rtl8125_private *tp = &linuxData;
     
-    /* Set RxMaxSize register */
+    // Set RxMaxSize register
     RTL_W16(tp, RxMaxSize, RX_BUF_SIZE);
     
     switch (tp->mcfg) {
@@ -1207,9 +1209,9 @@ void LucyRTL8125::hardwareD3Para()
             rtl8125_mac_ocp_write(tp, 0xEA18, 0x0064);
             break;
     }
-    setPCI99_180ExitDriverPara();
+    rtl8125_set_pci_99_180_exit_driver_para(tp);
 
-    /*disable ocp phy power saving*/
+    //disable ocp phy power saving
     if (tp->mcfg == CFG_METHOD_2 || tp->mcfg == CFG_METHOD_3 ||
         tp->mcfg == CFG_METHOD_4 || tp->mcfg == CFG_METHOD_5) {
             rtl8125_disable_ocp_phy_power_saving(tp);
@@ -1224,15 +1226,15 @@ UInt16 LucyRTL8125::getEEEMode()
     UInt16 sup, adv, lpa, ena;
 
     if (eeeCap) {
-        /* Get supported EEE. */
+        // Get supported EEE.
         sup = mdio_direct_read_phy_ocp(tp, 0xA5C4);
         DebugLog("EEE supported: %u\n", sup);
 
-        /* Get advertisement EEE. */
+        // Get advertisement EEE.
         adv = mdio_direct_read_phy_ocp(tp, 0xA5D0);
         DebugLog("EEE advertised: %u\n", adv);
 
-        /* Get LP advertisement EEE. */
+        // Get LP advertisement EEE.
         lpa = mdio_direct_read_phy_ocp(tp, 0xA5D2);
         DebugLog("EEE link partner: %u\n", lpa);
 
@@ -1244,6 +1246,68 @@ UInt16 LucyRTL8125::getEEEMode()
     }
     return eee;
 }
+*/
+void LucyRTL8125::rtl812xGetEEEMode(struct rtl8125_private *tp)
+{
+    UInt32 adv, lp, sup;
+    UInt16 val;
+    
+    /* Get supported EEE. */
+    //val = rtl8125_mdio_direct_read_phy_ocp(tp, 0xA5C4);
+    //sup = mmd_eee_cap_to_ethtool_sup_t(val);
+    sup = tp->eee.supported;
+    DebugLog("EEE supported: 0x%0x\n", sup);
+
+    /* Get advertisement EEE */
+    val = mdio_direct_read_phy_ocp(tp, 0xA5D0);
+    adv = mmd_eee_adv_to_ethtool_adv_t(val);
+    
+    val = mdio_direct_read_phy_ocp(tp, 0xA6D4);
+    
+    if (val & RTK_EEE_ADVERTISE_2500FULL)
+        adv |= ADVERTISED_2500baseX_Full;
+
+    DebugLog("EEE advertised: 0x%0x\n", adv);
+
+    /* Get LP advertisement EEE */
+    val = mdio_direct_read_phy_ocp(tp, 0xA5D2);
+    lp = mmd_eee_adv_to_ethtool_adv_t(val);
+    DebugLog("EEE link partner: 0x%0x\n", lp);
+
+    val = mdio_direct_read_phy_ocp(tp, 0xA6D0);
+    
+    if (val & RTK_LPA_EEE_ADVERTISE_2500FULL)
+        lp |= ADVERTISED_2500baseX_Full;
+    
+    val = rtl8125_mac_ocp_read(tp, 0xE040);
+    val &= BIT_1 | BIT_0;
+
+    tp->eee.eee_enabled = !!val;
+    tp->eee.eee_active = !!(sup & adv & lp);
+
+}
+
+UInt32 LucyRTL8125::rtl812xGetHwCloPtr(struct rtl8125_private *tp)
+{
+    UInt32 cloPtr;
+    
+    if (tp->HwSuppTxNoCloseVer == 3)
+        cloPtr = RTL_R16(tp, tp->HwCloPtrReg);
+    else
+        cloPtr = RTL_R32(tp, tp->HwCloPtrReg);
+
+    return cloPtr;
+}
+
+void LucyRTL8125::rtl812xDoorbell(struct rtl8125_private *tp, UInt32 txTailPtr)
+{
+    if (tp->HwSuppTxNoCloseVer > 3)
+        RTL_W32(tp, tp->SwTailPtrReg, txTailPtr);
+    else
+        RTL_W16(tp, tp->SwTailPtrReg, txTailPtr & 0xffff);
+}
+
+/*
 void LucyRTL8125::exitOOB()
 {
     struct rtl8125_private *tp = &linuxData;
@@ -1311,7 +1375,7 @@ void LucyRTL8125::powerDownPLL()
 {
     struct rtl8125_private *tp = &linuxData;
 
-    if (tp->wol_enabled == WOL_ENABLED || tp->DASH || tp->EnableKCPOffload) {
+    if (tp->wol_enabled == WOL_ENABLED || tp->DASH) {
         int auto_nego;
         int giga_ctrl;
         u16 anlpar;
@@ -1385,939 +1449,4 @@ void LucyRTL8125::powerDownPLL()
             break;
         }
 }
-
-void LucyRTL8125::configPhyHardware()
-{
-    struct rtl8125_private *tp = &linuxData;
-
-    if (tp->resume_not_chg_speed) return;
-    
-    tp->phy_reset_enable(tp);
-    
-    if (HW_DASH_SUPPORT_TYPE_3(tp) && tp->HwPkgDet == 0x06) return;
-    
-    rtl8125_set_hw_phy_before_init_phy_mcu(tp);
-    
-    rtl8125_init_hw_phy_mcu(tp);
-    
-    switch (tp->mcfg) {
-        case CFG_METHOD_2:
-            configPhyHardware8125a1();
-            break;
-        case CFG_METHOD_3:
-            configPhyHardware8125a2();
-            break;
-        case CFG_METHOD_4:
-            configPhyHardware8125b1();
-            break;
-        case CFG_METHOD_5:
-            configPhyHardware8125b2();
-            break;
-    }
-    
-    //legacy force mode(Chap 22)
-    switch (tp->mcfg) {
-        case CFG_METHOD_2:
-        case CFG_METHOD_3:
-        case CFG_METHOD_4:
-        case CFG_METHOD_5:
-        default:
-            rtl8125_mdio_write(tp, 0x1F, 0x0A5B);
-            rtl8125_clear_eth_phy_bit(tp, 0x12, BIT_15);
-            rtl8125_mdio_write(tp, 0x1F, 0x0000);
-            break;
-    }
-    
-    /*ocp phy power saving*/
-    /*
-     if (aspm) {
-     if (tp->mcfg == CFG_METHOD_2 || tp->mcfg == CFG_METHOD_3)
-     rtl8125_enable_ocp_phy_power_saving(dev);
-     }
-     */
-    
-    rtl8125_mdio_write(tp, 0x1F, 0x0000);
-    
-    if (HW_HAS_WRITE_PHY_MCU_RAM_CODE(tp)) {
-        if (tp->eee_enabled == 1)
-            rtl8125_enable_eee(tp);
-        else
-            rtl8125_disable_eee(tp);
-    }
-}
-
-void LucyRTL8125::configPhyHardware8125a1()
-{
-    struct rtl8125_private *tp = &linuxData;
-
-    ClearAndSetEthPhyOcpBit(tp,
-                            0xAD40,
-                            0x03FF,
-                            0x84
-                            );
-    
-    SetEthPhyOcpBit(tp, 0xAD4E, BIT_4);
-    ClearAndSetEthPhyOcpBit(tp,
-                            0xAD16,
-                            0x03FF,
-                            0x0006
-                            );
-    ClearAndSetEthPhyOcpBit(tp,
-                            0xAD32,
-                            0x003F,
-                            0x0006
-                            );
-    ClearEthPhyOcpBit(tp, 0xAC08, BIT_12);
-    ClearEthPhyOcpBit(tp, 0xAC08, BIT_8);
-    ClearAndSetEthPhyOcpBit(tp,
-                            0xAC8A,
-                            BIT_15|BIT_14|BIT_13|BIT_12,
-                            BIT_14|BIT_13|BIT_12
-                            );
-    SetEthPhyOcpBit(tp, 0xAD18, BIT_10);
-    SetEthPhyOcpBit(tp, 0xAD1A, 0x3FF);
-    SetEthPhyOcpBit(tp, 0xAD1C, 0x3FF);
-    
-    mdio_direct_write_phy_ocp(tp, 0xA436, 0x80EA);
-    ClearAndSetEthPhyOcpBit(tp,
-                            0xA438,
-                            0xFF00,
-                            0xC400
-                            );
-    mdio_direct_write_phy_ocp(tp, 0xA436, 0x80EB);
-    ClearAndSetEthPhyOcpBit(tp,
-                            0xA438,
-                            0x0700,
-                            0x0300
-                            );
-    mdio_direct_write_phy_ocp(tp, 0xA436, 0x80F8);
-    ClearAndSetEthPhyOcpBit(tp,
-                            0xA438,
-                            0xFF00,
-                            0x1C00
-                            );
-    mdio_direct_write_phy_ocp(tp, 0xA436, 0x80F1);
-    ClearAndSetEthPhyOcpBit(tp,
-                            0xA438,
-                            0xFF00,
-                            0x3000
-                            );
-    
-    mdio_direct_write_phy_ocp(tp, 0xA436, 0x80FE);
-    ClearAndSetEthPhyOcpBit(tp,
-                            0xA438,
-                            0xFF00,
-                            0xA500
-                            );
-    mdio_direct_write_phy_ocp(tp, 0xA436, 0x8102);
-    ClearAndSetEthPhyOcpBit(tp,
-                            0xA438,
-                            0xFF00,
-                            0x5000
-                            );
-    mdio_direct_write_phy_ocp(tp, 0xA436, 0x8105);
-    ClearAndSetEthPhyOcpBit(tp,
-                            0xA438,
-                            0xFF00,
-                            0x3300
-                            );
-    mdio_direct_write_phy_ocp(tp, 0xA436, 0x8100);
-    ClearAndSetEthPhyOcpBit(tp,
-                            0xA438,
-                            0xFF00,
-                            0x7000
-                            );
-    mdio_direct_write_phy_ocp(tp, 0xA436, 0x8104);
-    ClearAndSetEthPhyOcpBit(tp,
-                            0xA438,
-                            0xFF00,
-                            0xF000
-                            );
-    mdio_direct_write_phy_ocp(tp, 0xA436, 0x8106);
-    ClearAndSetEthPhyOcpBit(tp,
-                            0xA438,
-                            0xFF00,
-                            0x6500
-                            );
-    mdio_direct_write_phy_ocp(tp, 0xA436, 0x80DC);
-    ClearAndSetEthPhyOcpBit(tp,
-                            0xA438,
-                            0xFF00,
-                            0xED00
-                            );
-    mdio_direct_write_phy_ocp(tp, 0xA436, 0x80DF);
-    SetEthPhyOcpBit(tp, 0xA438, BIT_8);
-    mdio_direct_write_phy_ocp(tp, 0xA436, 0x80E1);
-    ClearEthPhyOcpBit(tp, 0xA438, BIT_8);
-    
-    ClearAndSetEthPhyOcpBit(tp,
-                            0xBF06,
-                            0x003F,
-                            0x38
-                            );
-    
-    mdio_direct_write_phy_ocp(tp, 0xA436, 0x819F);
-    mdio_direct_write_phy_ocp(tp, 0xA438, 0xD0B6);
-    
-    mdio_direct_write_phy_ocp(tp, 0xBC34, 0x5555);
-    ClearAndSetEthPhyOcpBit(tp,
-                            0xBF0A,
-                            BIT_11|BIT_10|BIT_9,
-                            BIT_11|BIT_9
-                            );
-    
-    ClearEthPhyOcpBit(tp, 0xA5C0, BIT_10);
-    
-    SetEthPhyOcpBit(tp, 0xA442, BIT_11);
-    
-    //enable aldps
-    //GPHY OCP 0xA430 bit[2] = 0x1 (en_aldps)
-    if (aspm) {
-        if (HW_HAS_WRITE_PHY_MCU_RAM_CODE(tp)) {
-            rtl8125_enable_phy_aldps(tp);
-        }
-    }
-}
-
-void LucyRTL8125::configPhyHardware8125a2()
-{
-    struct rtl8125_private *tp = &linuxData;
-
-    SetEthPhyOcpBit(tp, 0xAD4E, BIT_4);
-    ClearAndSetEthPhyOcpBit(tp,
-                            0xAD16,
-                            0x03FF,
-                            0x03FF
-                            );
-    ClearAndSetEthPhyOcpBit(tp,
-                            0xAD32,
-                            0x003F,
-                            0x0006
-                            );
-    ClearEthPhyOcpBit(tp, 0xAC08, BIT_12);
-    ClearEthPhyOcpBit(tp, 0xAC08, BIT_8);
-    ClearAndSetEthPhyOcpBit(tp,
-                            0xACC0,
-                            BIT_1|BIT_0,
-                            BIT_1
-                            );
-    ClearAndSetEthPhyOcpBit(tp,
-                            0xAD40,
-                            BIT_7|BIT_6|BIT_5,
-                            BIT_6
-                            );
-    ClearAndSetEthPhyOcpBit(tp,
-                            0xAD40,
-                            BIT_2|BIT_1|BIT_0,
-                            BIT_2
-                            );
-    ClearEthPhyOcpBit(tp, 0xAC14, BIT_7);
-    ClearEthPhyOcpBit(tp, 0xAC80, BIT_9|BIT_8);
-    ClearAndSetEthPhyOcpBit(tp,
-                            0xAC5E,
-                            BIT_2|BIT_1|BIT_0,
-                            BIT_1
-                            );
-    mdio_direct_write_phy_ocp(tp, 0xAD4C, 0x00A8);
-    mdio_direct_write_phy_ocp(tp, 0xAC5C, 0x01FF);
-    ClearAndSetEthPhyOcpBit(tp,
-                            0xAC8A,
-                            BIT_7|BIT_6|BIT_5|BIT_4,
-                            BIT_5|BIT_4
-                            );
-    mdio_direct_write_phy_ocp(tp, 0xB87C, 0x8157);
-    ClearAndSetEthPhyOcpBit(tp,
-                            0xB87E,
-                            0xFF00,
-                            0x0500
-                            );
-    mdio_direct_write_phy_ocp(tp, 0xB87C, 0x8159);
-    ClearAndSetEthPhyOcpBit(tp,
-                            0xB87E,
-                            0xFF00,
-                            0x0700
-                            );
-    
-    RTL_W16(tp, EEE_TXIDLE_TIMER_8125, mtu + ETH_HLEN + 0x20);
-    
-    mdio_direct_write_phy_ocp(tp, 0xB87C, 0x80A2);
-    mdio_direct_write_phy_ocp(tp, 0xB87E, 0x0153);
-    mdio_direct_write_phy_ocp(tp, 0xB87C, 0x809C);
-    mdio_direct_write_phy_ocp(tp, 0xB87E, 0x0153);
-    
-    
-    mdio_direct_write_phy_ocp(tp, 0xA436, 0x81B3);
-    mdio_direct_write_phy_ocp(tp, 0xA438, 0x0043);
-    mdio_direct_write_phy_ocp(tp, 0xA438, 0x00A7);
-    mdio_direct_write_phy_ocp(tp, 0xA438, 0x00D6);
-    mdio_direct_write_phy_ocp(tp, 0xA438, 0x00EC);
-    mdio_direct_write_phy_ocp(tp, 0xA438, 0x00F6);
-    mdio_direct_write_phy_ocp(tp, 0xA438, 0x00FB);
-    mdio_direct_write_phy_ocp(tp, 0xA438, 0x00FD);
-    mdio_direct_write_phy_ocp(tp, 0xA438, 0x00FF);
-    mdio_direct_write_phy_ocp(tp, 0xA438, 0x00BB);
-    mdio_direct_write_phy_ocp(tp, 0xA438, 0x0058);
-    mdio_direct_write_phy_ocp(tp, 0xA438, 0x0029);
-    mdio_direct_write_phy_ocp(tp, 0xA438, 0x0013);
-    mdio_direct_write_phy_ocp(tp, 0xA438, 0x0009);
-    mdio_direct_write_phy_ocp(tp, 0xA438, 0x0004);
-    mdio_direct_write_phy_ocp(tp, 0xA438, 0x0002);
-    mdio_direct_write_phy_ocp(tp, 0xA438, 0x0000);
-    mdio_direct_write_phy_ocp(tp, 0xA438, 0x0000);
-    mdio_direct_write_phy_ocp(tp, 0xA438, 0x0000);
-    mdio_direct_write_phy_ocp(tp, 0xA438, 0x0000);
-    mdio_direct_write_phy_ocp(tp, 0xA438, 0x0000);
-    mdio_direct_write_phy_ocp(tp, 0xA438, 0x0000);
-    mdio_direct_write_phy_ocp(tp, 0xA438, 0x0000);
-    mdio_direct_write_phy_ocp(tp, 0xA438, 0x0000);
-    mdio_direct_write_phy_ocp(tp, 0xA438, 0x0000);
-    mdio_direct_write_phy_ocp(tp, 0xA438, 0x0000);
-    mdio_direct_write_phy_ocp(tp, 0xA438, 0x0000);
-    mdio_direct_write_phy_ocp(tp, 0xA438, 0x0000);
-    mdio_direct_write_phy_ocp(tp, 0xA438, 0x0000);
-    mdio_direct_write_phy_ocp(tp, 0xA438, 0x0000);
-    mdio_direct_write_phy_ocp(tp, 0xA438, 0x0000);
-    mdio_direct_write_phy_ocp(tp, 0xA438, 0x0000);
-    mdio_direct_write_phy_ocp(tp, 0xA438, 0x0000);
-    mdio_direct_write_phy_ocp(tp, 0xA438, 0x0000);
-    mdio_direct_write_phy_ocp(tp, 0xA438, 0x0000);
-    mdio_direct_write_phy_ocp(tp, 0xA438, 0x0000);
-    mdio_direct_write_phy_ocp(tp, 0xA438, 0x0000);
-    mdio_direct_write_phy_ocp(tp, 0xA438, 0x0000);
-    mdio_direct_write_phy_ocp(tp, 0xA438, 0x0000);
-    mdio_direct_write_phy_ocp(tp, 0xA438, 0x0000);
-    mdio_direct_write_phy_ocp(tp, 0xA438, 0x0000);
-    
-    
-    mdio_direct_write_phy_ocp(tp, 0xA436, 0x8257);
-    mdio_direct_write_phy_ocp(tp, 0xA438, 0x020F);
-    
-    
-    mdio_direct_write_phy_ocp(tp, 0xA436, 0x80EA);
-    mdio_direct_write_phy_ocp(tp, 0xA438, 0x7843);
-    
-    
-    rtl8125_set_phy_mcu_patch_request(tp);
-    
-    ClearEthPhyOcpBit(tp, 0xB896, BIT_0);
-    ClearEthPhyOcpBit(tp, 0xB892, 0xFF00);
-    
-    mdio_direct_write_phy_ocp(tp, 0xB88E, 0xC091);
-    mdio_direct_write_phy_ocp(tp, 0xB890, 0x6E12);
-    mdio_direct_write_phy_ocp(tp, 0xB88E, 0xC092);
-    mdio_direct_write_phy_ocp(tp, 0xB890, 0x1214);
-    mdio_direct_write_phy_ocp(tp, 0xB88E, 0xC094);
-    mdio_direct_write_phy_ocp(tp, 0xB890, 0x1516);
-    mdio_direct_write_phy_ocp(tp, 0xB88E, 0xC096);
-    mdio_direct_write_phy_ocp(tp, 0xB890, 0x171B);
-    mdio_direct_write_phy_ocp(tp, 0xB88E, 0xC098);
-    mdio_direct_write_phy_ocp(tp, 0xB890, 0x1B1C);
-    mdio_direct_write_phy_ocp(tp, 0xB88E, 0xC09A);
-    mdio_direct_write_phy_ocp(tp, 0xB890, 0x1F1F);
-    mdio_direct_write_phy_ocp(tp, 0xB88E, 0xC09C);
-    mdio_direct_write_phy_ocp(tp, 0xB890, 0x2021);
-    mdio_direct_write_phy_ocp(tp, 0xB88E, 0xC09E);
-    mdio_direct_write_phy_ocp(tp, 0xB890, 0x2224);
-    mdio_direct_write_phy_ocp(tp, 0xB88E, 0xC0A0);
-    mdio_direct_write_phy_ocp(tp, 0xB890, 0x2424);
-    mdio_direct_write_phy_ocp(tp, 0xB88E, 0xC0A2);
-    mdio_direct_write_phy_ocp(tp, 0xB890, 0x2424);
-    mdio_direct_write_phy_ocp(tp, 0xB88E, 0xC0A4);
-    mdio_direct_write_phy_ocp(tp, 0xB890, 0x2424);
-    mdio_direct_write_phy_ocp(tp, 0xB88E, 0xC018);
-    mdio_direct_write_phy_ocp(tp, 0xB890, 0x0AF2);
-    mdio_direct_write_phy_ocp(tp, 0xB88E, 0xC01A);
-    mdio_direct_write_phy_ocp(tp, 0xB890, 0x0D4A);
-    mdio_direct_write_phy_ocp(tp, 0xB88E, 0xC01C);
-    mdio_direct_write_phy_ocp(tp, 0xB890, 0x0F26);
-    mdio_direct_write_phy_ocp(tp, 0xB88E, 0xC01E);
-    mdio_direct_write_phy_ocp(tp, 0xB890, 0x118D);
-    mdio_direct_write_phy_ocp(tp, 0xB88E, 0xC020);
-    mdio_direct_write_phy_ocp(tp, 0xB890, 0x14F3);
-    mdio_direct_write_phy_ocp(tp, 0xB88E, 0xC022);
-    mdio_direct_write_phy_ocp(tp, 0xB890, 0x175A);
-    mdio_direct_write_phy_ocp(tp, 0xB88E, 0xC024);
-    mdio_direct_write_phy_ocp(tp, 0xB890, 0x19C0);
-    mdio_direct_write_phy_ocp(tp, 0xB88E, 0xC026);
-    mdio_direct_write_phy_ocp(tp, 0xB890, 0x1C26);
-    mdio_direct_write_phy_ocp(tp, 0xB88E, 0xC089);
-    mdio_direct_write_phy_ocp(tp, 0xB890, 0x6050);
-    mdio_direct_write_phy_ocp(tp, 0xB88E, 0xC08A);
-    mdio_direct_write_phy_ocp(tp, 0xB890, 0x5F6E);
-    mdio_direct_write_phy_ocp(tp, 0xB88E, 0xC08C);
-    mdio_direct_write_phy_ocp(tp, 0xB890, 0x6E6E);
-    mdio_direct_write_phy_ocp(tp, 0xB88E, 0xC08E);
-    mdio_direct_write_phy_ocp(tp, 0xB890, 0x6E6E);
-    mdio_direct_write_phy_ocp(tp, 0xB88E, 0xC090);
-    mdio_direct_write_phy_ocp(tp, 0xB890, 0x6E12);
-    
-    SetEthPhyOcpBit(tp, 0xB896, BIT_0);
-    
-    rtl8125_clear_phy_mcu_patch_request(tp);
-    
-    
-    SetEthPhyOcpBit(tp, 0xD068, BIT_13);
-    
-    
-    mdio_direct_write_phy_ocp(tp, 0xA436, 0x81A2);
-    SetEthPhyOcpBit(tp, 0xA438, BIT_8);
-    ClearAndSetEthPhyOcpBit(tp,
-                            0xB54C,
-                            0xFF00,
-                            0xDB00);
-    
-    
-    ClearEthPhyOcpBit(tp, 0xA454, BIT_0);
-    
-    
-    SetEthPhyOcpBit(tp, 0xA5D4, BIT_5);
-    ClearEthPhyOcpBit(tp, 0xAD4E, BIT_4);
-    ClearEthPhyOcpBit(tp, 0xA86A, BIT_0);
-    
-    
-    SetEthPhyOcpBit(tp, 0xA442, BIT_11);
-    
-    
-    if (tp->RequirePhyMdiSwapPatch) {
-        u16 adccal_offset_p0;
-        u16 adccal_offset_p1;
-        u16 adccal_offset_p2;
-        u16 adccal_offset_p3;
-        u16 rg_lpf_cap_xg_p0;
-        u16 rg_lpf_cap_xg_p1;
-        u16 rg_lpf_cap_xg_p2;
-        u16 rg_lpf_cap_xg_p3;
-        u16 rg_lpf_cap_p0;
-        u16 rg_lpf_cap_p1;
-        u16 rg_lpf_cap_p2;
-        u16 rg_lpf_cap_p3;
-        
-        ClearAndSetEthPhyOcpBit(tp,
-                                0xD068,
-                                0x0007,
-                                0x0001
-                                );
-        ClearAndSetEthPhyOcpBit(tp,
-                                0xD068,
-                                0x0018,
-                                0x0000
-                                );
-        adccal_offset_p0 = mdio_direct_read_phy_ocp(tp, 0xD06A);
-        adccal_offset_p0 &= 0x07FF;
-        ClearAndSetEthPhyOcpBit(tp,
-                                0xD068,
-                                0x0018,
-                                0x0008
-                                );
-        adccal_offset_p1 = mdio_direct_read_phy_ocp(tp, 0xD06A);
-        adccal_offset_p1 &= 0x07FF;
-        ClearAndSetEthPhyOcpBit(tp,
-                                0xD068,
-                                0x0018,
-                                0x0010
-                                );
-        adccal_offset_p2 = mdio_direct_read_phy_ocp(tp, 0xD06A);
-        adccal_offset_p2 &= 0x07FF;
-        ClearAndSetEthPhyOcpBit(tp,
-                                0xD068,
-                                0x0018,
-                                0x0018
-                                );
-        adccal_offset_p3 = mdio_direct_read_phy_ocp(tp, 0xD06A);
-        adccal_offset_p3 &= 0x07FF;
-        
-        
-        ClearAndSetEthPhyOcpBit(tp,
-                                0xD068,
-                                0x0018,
-                                0x0000
-                                );
-        ClearAndSetEthPhyOcpBit(tp,
-                                0xD06A,
-                                0x07FF,
-                                adccal_offset_p3
-                                );
-        ClearAndSetEthPhyOcpBit(tp,
-                                0xD068,
-                                0x0018,
-                                0x0008
-                                );
-        ClearAndSetEthPhyOcpBit(tp,
-                                0xD06A,
-                                0x07FF,
-                                adccal_offset_p2
-                                );
-        ClearAndSetEthPhyOcpBit(tp,
-                                0xD068,
-                                0x0018,
-                                0x0010
-                                );
-        ClearAndSetEthPhyOcpBit(tp,
-                                0xD06A,
-                                0x07FF,
-                                adccal_offset_p1
-                                );
-        ClearAndSetEthPhyOcpBit(tp,
-                                0xD068,
-                                0x0018,
-                                0x0018
-                                );
-        ClearAndSetEthPhyOcpBit(tp,
-                                0xD06A,
-                                0x07FF,
-                                adccal_offset_p0
-                                );
-        
-        
-        rg_lpf_cap_xg_p0 = mdio_direct_read_phy_ocp(tp, 0xBD5A);
-        rg_lpf_cap_xg_p0 &= 0x001F;
-        rg_lpf_cap_xg_p1 = mdio_direct_read_phy_ocp(tp, 0xBD5A);
-        rg_lpf_cap_xg_p1 &= 0x1F00;
-        rg_lpf_cap_xg_p2 = mdio_direct_read_phy_ocp(tp, 0xBD5C);
-        rg_lpf_cap_xg_p2 &= 0x001F;
-        rg_lpf_cap_xg_p3 = mdio_direct_read_phy_ocp(tp, 0xBD5C);
-        rg_lpf_cap_xg_p3 &= 0x1F00;
-        rg_lpf_cap_p0 = mdio_direct_read_phy_ocp(tp, 0xBC18);
-        rg_lpf_cap_p0 &= 0x001F;
-        rg_lpf_cap_p1 = mdio_direct_read_phy_ocp(tp, 0xBC18);
-        rg_lpf_cap_p1 &= 0x1F00;
-        rg_lpf_cap_p2 = mdio_direct_read_phy_ocp(tp, 0xBC1A);
-        rg_lpf_cap_p2 &= 0x001F;
-        rg_lpf_cap_p3 = mdio_direct_read_phy_ocp(tp, 0xBC1A);
-        rg_lpf_cap_p3 &= 0x1F00;
-        
-        
-        ClearAndSetEthPhyOcpBit(tp,
-                                0xBD5A,
-                                0x001F,
-                                rg_lpf_cap_xg_p3 >> 8
-                                );
-        ClearAndSetEthPhyOcpBit(tp,
-                                0xBD5A,
-                                0x1F00,
-                                rg_lpf_cap_xg_p2 << 8
-                                );
-        ClearAndSetEthPhyOcpBit(tp,
-                                0xBD5C,
-                                0x001F,
-                                rg_lpf_cap_xg_p1 >> 8
-                                );
-        ClearAndSetEthPhyOcpBit(tp,
-                                0xBD5C,
-                                0x1F00,
-                                rg_lpf_cap_xg_p0 << 8
-                                );
-        ClearAndSetEthPhyOcpBit(tp,
-                                0xBC18,
-                                0x001F,
-                                rg_lpf_cap_p3 >> 8
-                                );
-        ClearAndSetEthPhyOcpBit(tp,
-                                0xBC18,
-                                0x1F00,
-                                rg_lpf_cap_p2 << 8
-                                );
-        ClearAndSetEthPhyOcpBit(tp,
-                                0xBC1A,
-                                0x001F,
-                                rg_lpf_cap_p1 >> 8
-                                );
-        ClearAndSetEthPhyOcpBit(tp,
-                                0xBC1A,
-                                0x1F00,
-                                rg_lpf_cap_p0 << 8
-                                );
-    }
-    
-    
-    if (aspm) {
-        if (HW_HAS_WRITE_PHY_MCU_RAM_CODE(tp)) {
-            rtl8125_enable_phy_aldps(tp);
-        }
-    }
-}
-
-void LucyRTL8125::configPhyHardware8125b1()
-{
-    struct rtl8125_private *tp = &linuxData;
-
-    SetEthPhyOcpBit(tp, 0xA442, BIT_11);
-    
-    
-    SetEthPhyOcpBit(tp, 0xBC08, (BIT_3 | BIT_2));
-    
-    
-    if (HW_HAS_WRITE_PHY_MCU_RAM_CODE(tp)) {
-        mdio_direct_write_phy_ocp(tp, 0xA436, 0x8FFF);
-        ClearAndSetEthPhyOcpBit(tp,
-                                0xA438,
-                                0xFF00,
-                                0x0400
-                                );
-    }
-    mdio_direct_write_phy_ocp(tp, 0xB87C, 0x8560);
-    mdio_direct_write_phy_ocp(tp, 0xB87E, 0x19CC);
-    mdio_direct_write_phy_ocp(tp, 0xB87C, 0x8562);
-    mdio_direct_write_phy_ocp(tp, 0xB87E, 0x19CC);
-    mdio_direct_write_phy_ocp(tp, 0xB87C, 0x8564);
-    mdio_direct_write_phy_ocp(tp, 0xB87E, 0x19CC);
-    mdio_direct_write_phy_ocp(tp, 0xB87C, 0x8566);
-    mdio_direct_write_phy_ocp(tp, 0xB87E, 0x147D);
-    mdio_direct_write_phy_ocp(tp, 0xB87C, 0x8568);
-    mdio_direct_write_phy_ocp(tp, 0xB87E, 0x147D);
-    mdio_direct_write_phy_ocp(tp, 0xB87C, 0x856A);
-    mdio_direct_write_phy_ocp(tp, 0xB87E, 0x147D);
-    if (HW_HAS_WRITE_PHY_MCU_RAM_CODE(tp)) {
-        mdio_direct_write_phy_ocp(tp, 0xB87C, 0x8FFE);
-        mdio_direct_write_phy_ocp(tp, 0xB87E, 0x0907);
-    }
-    ClearAndSetEthPhyOcpBit(tp,
-                            0xACDA,
-                            0xFF00,
-                            0xFF00
-                            );
-    ClearAndSetEthPhyOcpBit(tp,
-                            0xACDE,
-                            0xF000,
-                            0xF000
-                            );
-    mdio_direct_write_phy_ocp(tp, 0xB87C, 0x80D6);
-    mdio_direct_write_phy_ocp(tp, 0xB87E, 0x2801);
-    mdio_direct_write_phy_ocp(tp, 0xB87C, 0x80F2);
-    mdio_direct_write_phy_ocp(tp, 0xB87E, 0x2801);
-    mdio_direct_write_phy_ocp(tp, 0xB87C, 0x80F4);
-    mdio_direct_write_phy_ocp(tp, 0xB87E, 0x6077);
-    mdio_direct_write_phy_ocp(tp, 0xB506, 0x01E7);
-    mdio_direct_write_phy_ocp(tp, 0xAC8C, 0x0FFC);
-    mdio_direct_write_phy_ocp(tp, 0xAC46, 0xB7B4);
-    mdio_direct_write_phy_ocp(tp, 0xAC50, 0x0FBC);
-    mdio_direct_write_phy_ocp(tp, 0xAC3C, 0x9240);
-    mdio_direct_write_phy_ocp(tp, 0xAC4E, 0x0DB4);
-    mdio_direct_write_phy_ocp(tp, 0xACC6, 0x0707);
-    mdio_direct_write_phy_ocp(tp, 0xACC8, 0xA0D3);
-    mdio_direct_write_phy_ocp(tp, 0xAD08, 0x0007);
-    
-    mdio_direct_write_phy_ocp(tp, 0xB87C, 0x8013);
-    mdio_direct_write_phy_ocp(tp, 0xB87E, 0x0700);
-    mdio_direct_write_phy_ocp(tp, 0xB87C, 0x8FB9);
-    mdio_direct_write_phy_ocp(tp, 0xB87E, 0x2801);
-    mdio_direct_write_phy_ocp(tp, 0xB87C, 0x8FBA);
-    mdio_direct_write_phy_ocp(tp, 0xB87E, 0x0100);
-    mdio_direct_write_phy_ocp(tp, 0xB87C, 0x8FBC);
-    mdio_direct_write_phy_ocp(tp, 0xB87E, 0x1900);
-    mdio_direct_write_phy_ocp(tp, 0xB87C, 0x8FBE);
-    mdio_direct_write_phy_ocp(tp, 0xB87E, 0xE100);
-    mdio_direct_write_phy_ocp(tp, 0xB87C, 0x8FC0);
-    mdio_direct_write_phy_ocp(tp, 0xB87E, 0x0800);
-    mdio_direct_write_phy_ocp(tp, 0xB87C, 0x8FC2);
-    mdio_direct_write_phy_ocp(tp, 0xB87E, 0xE500);
-    mdio_direct_write_phy_ocp(tp, 0xB87C, 0x8FC4);
-    mdio_direct_write_phy_ocp(tp, 0xB87E, 0x0F00);
-    mdio_direct_write_phy_ocp(tp, 0xB87C, 0x8FC6);
-    mdio_direct_write_phy_ocp(tp, 0xB87E, 0xF100);
-    mdio_direct_write_phy_ocp(tp, 0xB87C, 0x8FC8);
-    mdio_direct_write_phy_ocp(tp, 0xB87E, 0x0400);
-    mdio_direct_write_phy_ocp(tp, 0xB87C, 0x8FCa);
-    mdio_direct_write_phy_ocp(tp, 0xB87E, 0xF300);
-    mdio_direct_write_phy_ocp(tp, 0xB87C, 0x8FCc);
-    mdio_direct_write_phy_ocp(tp, 0xB87E, 0xFD00);
-    mdio_direct_write_phy_ocp(tp, 0xB87C, 0x8FCe);
-    mdio_direct_write_phy_ocp(tp, 0xB87E, 0xFF00);
-    mdio_direct_write_phy_ocp(tp, 0xB87C, 0x8FD0);
-    mdio_direct_write_phy_ocp(tp, 0xB87E, 0xFB00);
-    mdio_direct_write_phy_ocp(tp, 0xB87C, 0x8FD2);
-    mdio_direct_write_phy_ocp(tp, 0xB87E, 0x0100);
-    mdio_direct_write_phy_ocp(tp, 0xB87C, 0x8FD4);
-    mdio_direct_write_phy_ocp(tp, 0xB87E, 0xF400);
-    mdio_direct_write_phy_ocp(tp, 0xB87C, 0x8FD6);
-    mdio_direct_write_phy_ocp(tp, 0xB87E, 0xFF00);
-    mdio_direct_write_phy_ocp(tp, 0xB87C, 0x8FD8);
-    mdio_direct_write_phy_ocp(tp, 0xB87E, 0xF600);
-    
-    
-    mdio_direct_write_phy_ocp(tp, 0xB87C, 0x813D);
-    mdio_direct_write_phy_ocp(tp, 0xB87E, 0x390E);
-    mdio_direct_write_phy_ocp(tp, 0xB87C, 0x814F);
-    mdio_direct_write_phy_ocp(tp, 0xB87E, 0x790E);
-    mdio_direct_write_phy_ocp(tp, 0xB87C, 0x80B0);
-    mdio_direct_write_phy_ocp(tp, 0xB87E, 0x0F31);
-    SetEthPhyOcpBit(tp, 0xBF4C, BIT_1);
-    SetEthPhyOcpBit(tp, 0xBCCA, (BIT_9 | BIT_8));
-    mdio_direct_write_phy_ocp(tp, 0xB87C, 0x8141);
-    mdio_direct_write_phy_ocp(tp, 0xB87E, 0x320E);
-    mdio_direct_write_phy_ocp(tp, 0xB87C, 0x8153);
-    mdio_direct_write_phy_ocp(tp, 0xB87E, 0x720E);
-    ClearEthPhyOcpBit(tp, 0xA432, BIT_6);
-    mdio_direct_write_phy_ocp(tp, 0xB87C, 0x8529);
-    mdio_direct_write_phy_ocp(tp, 0xB87E, 0x050E);
-    
-    RTL_W16(tp, EEE_TXIDLE_TIMER_8125, mtu + ETH_HLEN + 0x20);
-
-    mdio_direct_write_phy_ocp(tp, 0xA436, 0x816C);
-    mdio_direct_write_phy_ocp(tp, 0xA438, 0xC4A0);
-    mdio_direct_write_phy_ocp(tp, 0xA436, 0x8170);
-    mdio_direct_write_phy_ocp(tp, 0xA438, 0xC4A0);
-    mdio_direct_write_phy_ocp(tp, 0xA436, 0x8174);
-    mdio_direct_write_phy_ocp(tp, 0xA438, 0x04A0);
-    mdio_direct_write_phy_ocp(tp, 0xA436, 0x8178);
-    mdio_direct_write_phy_ocp(tp, 0xA438, 0x04A0);
-    mdio_direct_write_phy_ocp(tp, 0xA436, 0x817C);
-    mdio_direct_write_phy_ocp(tp, 0xA438, 0x0719);
-    if (HW_HAS_WRITE_PHY_MCU_RAM_CODE(tp)) {
-        mdio_direct_write_phy_ocp(tp, 0xA436, 0x8FF4);
-        mdio_direct_write_phy_ocp(tp, 0xA438, 0x0400);
-        mdio_direct_write_phy_ocp(tp, 0xA436, 0x8FF1);
-        mdio_direct_write_phy_ocp(tp, 0xA438, 0x0404);
-    }
-    mdio_direct_write_phy_ocp(tp, 0xBF4A, 0x001B);
-    mdio_direct_write_phy_ocp(tp, 0xB87C, 0x8033);
-    mdio_direct_write_phy_ocp(tp, 0xB87E, 0x7C13);
-    mdio_direct_write_phy_ocp(tp, 0xB87C, 0x8037);
-    mdio_direct_write_phy_ocp(tp, 0xB87E, 0x7C13);
-    mdio_direct_write_phy_ocp(tp, 0xB87C, 0x803B);
-    mdio_direct_write_phy_ocp(tp, 0xB87E, 0xFC32);
-    mdio_direct_write_phy_ocp(tp, 0xB87C, 0x803F);
-    mdio_direct_write_phy_ocp(tp, 0xB87E, 0x7C13);
-    mdio_direct_write_phy_ocp(tp, 0xB87C, 0x8043);
-    mdio_direct_write_phy_ocp(tp, 0xB87E, 0x7C13);
-    mdio_direct_write_phy_ocp(tp, 0xB87C, 0x8047);
-    mdio_direct_write_phy_ocp(tp, 0xB87E, 0x7C13);
-    
-    
-    mdio_direct_write_phy_ocp(tp, 0xB87C, 0x8145);
-    mdio_direct_write_phy_ocp(tp, 0xB87E, 0x370E);
-    mdio_direct_write_phy_ocp(tp, 0xB87C, 0x8157);
-    mdio_direct_write_phy_ocp(tp, 0xB87E, 0x770E);
-    mdio_direct_write_phy_ocp(tp, 0xB87C, 0x8169);
-    mdio_direct_write_phy_ocp(tp, 0xB87E, 0x0D0A);
-    mdio_direct_write_phy_ocp(tp, 0xB87C, 0x817B);
-    mdio_direct_write_phy_ocp(tp, 0xB87E, 0x1D0A);
-    
-    
-    mdio_direct_write_phy_ocp(tp, 0xA436, 0x8217);
-    ClearAndSetEthPhyOcpBit(tp,
-                            0xA438,
-                            0xFF00,
-                            0x5000
-                            );
-    mdio_direct_write_phy_ocp(tp, 0xA436, 0x821A);
-    ClearAndSetEthPhyOcpBit(tp,
-                            0xA438,
-                            0xFF00,
-                            0x5000
-                            );
-    
-    mdio_direct_write_phy_ocp(tp, 0xA436, 0x80DA);
-    mdio_direct_write_phy_ocp(tp, 0xA438, 0x0403);
-    mdio_direct_write_phy_ocp(tp, 0xA436, 0x80DC);
-    ClearAndSetEthPhyOcpBit(tp,
-                            0xA438,
-                            0xFF00,
-                            0x1000
-                            );
-    mdio_direct_write_phy_ocp(tp, 0xA436, 0x80B3);
-    mdio_direct_write_phy_ocp(tp, 0xA438, 0x0384);
-    mdio_direct_write_phy_ocp(tp, 0xA436, 0x80B7);
-    mdio_direct_write_phy_ocp(tp, 0xA438, 0x2007);
-    mdio_direct_write_phy_ocp(tp, 0xA436, 0x80BA);
-    ClearAndSetEthPhyOcpBit(tp,
-                            0xA438,
-                            0xFF00,
-                            0x6C00
-                            );
-    mdio_direct_write_phy_ocp(tp, 0xA436, 0x80B5);
-    mdio_direct_write_phy_ocp(tp, 0xA438, 0xF009);
-    mdio_direct_write_phy_ocp(tp, 0xA436, 0x80BD);
-    ClearAndSetEthPhyOcpBit(tp,
-                            0xA438,
-                            0xFF00,
-                            0x9F00
-                            );
-    
-    mdio_direct_write_phy_ocp(tp, 0xA436, 0x80C7);
-    mdio_direct_write_phy_ocp(tp, 0xA438, 0xf083);
-    mdio_direct_write_phy_ocp(tp, 0xA436, 0x80DD);
-    mdio_direct_write_phy_ocp(tp, 0xA438, 0x03f0);
-    mdio_direct_write_phy_ocp(tp, 0xA436, 0x80DF);
-    ClearAndSetEthPhyOcpBit(tp,
-                            0xA438,
-                            0xFF00,
-                            0x1000
-                            );
-    mdio_direct_write_phy_ocp(tp, 0xA436, 0x80CB);
-    mdio_direct_write_phy_ocp(tp, 0xA438, 0x2007);
-    mdio_direct_write_phy_ocp(tp, 0xA436, 0x80CE);
-    ClearAndSetEthPhyOcpBit(tp,
-                            0xA438,
-                            0xFF00,
-                            0x6C00
-                            );
-    mdio_direct_write_phy_ocp(tp, 0xA436, 0x80C9);
-    mdio_direct_write_phy_ocp(tp, 0xA438, 0x8009);
-    mdio_direct_write_phy_ocp(tp, 0xA436, 0x80D1);
-    ClearAndSetEthPhyOcpBit(tp,
-                            0xA438,
-                            0xFF00,
-                            0x8000
-                            );
-    
-    mdio_direct_write_phy_ocp(tp, 0xA436, 0x80A3);
-    mdio_direct_write_phy_ocp(tp, 0xA438, 0x200A);
-    mdio_direct_write_phy_ocp(tp, 0xA436, 0x80A5);
-    mdio_direct_write_phy_ocp(tp, 0xA438, 0xF0AD);
-    mdio_direct_write_phy_ocp(tp, 0xA436, 0x809F);
-    mdio_direct_write_phy_ocp(tp, 0xA438, 0x6073);
-    mdio_direct_write_phy_ocp(tp, 0xA436, 0x80A1);
-    mdio_direct_write_phy_ocp(tp, 0xA438, 0x000B);
-    mdio_direct_write_phy_ocp(tp, 0xA436, 0x80A9);
-    ClearAndSetEthPhyOcpBit(tp,
-                            0xA438,
-                            0xFF00,
-                            0xC000
-                            );
-    
-    rtl8125_set_phy_mcu_patch_request(tp);
-    
-    ClearEthPhyOcpBit(tp, 0xB896, BIT_0);
-    ClearEthPhyOcpBit(tp, 0xB892, 0xFF00);
-    
-    mdio_direct_write_phy_ocp(tp, 0xB88E, 0xC23E);
-    mdio_direct_write_phy_ocp(tp, 0xB890, 0x0000);
-    mdio_direct_write_phy_ocp(tp, 0xB88E, 0xC240);
-    mdio_direct_write_phy_ocp(tp, 0xB890, 0x0103);
-    mdio_direct_write_phy_ocp(tp, 0xB88E, 0xC242);
-    mdio_direct_write_phy_ocp(tp, 0xB890, 0x0507);
-    mdio_direct_write_phy_ocp(tp, 0xB88E, 0xC244);
-    mdio_direct_write_phy_ocp(tp, 0xB890, 0x090B);
-    mdio_direct_write_phy_ocp(tp, 0xB88E, 0xC246);
-    mdio_direct_write_phy_ocp(tp, 0xB890, 0x0C0E);
-    mdio_direct_write_phy_ocp(tp, 0xB88E, 0xC248);
-    mdio_direct_write_phy_ocp(tp, 0xB890, 0x1012);
-    mdio_direct_write_phy_ocp(tp, 0xB88E, 0xC24A);
-    mdio_direct_write_phy_ocp(tp, 0xB890, 0x1416);
-    
-    SetEthPhyOcpBit(tp, 0xB896, BIT_0);
-    
-    rtl8125_clear_phy_mcu_patch_request(tp);
-    
-    
-    SetEthPhyOcpBit(tp, 0xA86A, BIT_0);
-    SetEthPhyOcpBit(tp, 0xA6F0, BIT_0);
-    
-    
-    mdio_direct_write_phy_ocp(tp, 0xBFA0, 0xD70D);
-    mdio_direct_write_phy_ocp(tp, 0xBFA2, 0x4100);
-    mdio_direct_write_phy_ocp(tp, 0xBFA4, 0xE868);
-    mdio_direct_write_phy_ocp(tp, 0xBFA6, 0xDC59);
-    mdio_direct_write_phy_ocp(tp, 0xB54C, 0x3C18);
-    ClearEthPhyOcpBit(tp, 0xBFA4, BIT_5);
-    mdio_direct_write_phy_ocp(tp, 0xA436, 0x817D);
-    SetEthPhyOcpBit(tp, 0xA438, BIT_12);
-    
-    
-    if (aspm) {
-        if (HW_HAS_WRITE_PHY_MCU_RAM_CODE(tp)) {
-            rtl8125_enable_phy_aldps(tp);
-        }
-    }
-}
-
-void LucyRTL8125::configPhyHardware8125b2()
-{
-    struct rtl8125_private *tp = &linuxData;
-    
-    SetEthPhyOcpBit(tp, 0xA442, BIT_11);
-    
-    
-    ClearAndSetEthPhyOcpBit(tp,
-                            0xAC46,
-                            0x00F0,
-                            0x0090
-                            );
-    ClearAndSetEthPhyOcpBit(tp,
-                            0xAD30,
-                            0x0003,
-                            0x0001
-                            );
-    
-    
-    RTL_W16(tp, EEE_TXIDLE_TIMER_8125, mtu + ETH_HLEN + 0x20);
-    
-    mdio_direct_write_phy_ocp(tp, 0xB87C, 0x80F5);
-    mdio_direct_write_phy_ocp(tp, 0xB87E, 0x760E);
-    mdio_direct_write_phy_ocp(tp, 0xB87C, 0x8107);
-    mdio_direct_write_phy_ocp(tp, 0xB87E, 0x360E);
-    mdio_direct_write_phy_ocp(tp, 0xB87C, 0x8551);
-    ClearAndSetEthPhyOcpBit(tp,
-                            0xB87E,
-                            BIT_15 | BIT_14 | BIT_13 | BIT_12 | BIT_11 | BIT_10 | BIT_9 | BIT_8,
-                            BIT_11
-                            );
-    
-    ClearAndSetEthPhyOcpBit(tp,
-                            0xbf00,
-                            0xE000,
-                            0xA000
-                            );
-    ClearAndSetEthPhyOcpBit(tp,
-                            0xbf46,
-                            0x0F00,
-                            0x0300
-                            );
-    mdio_direct_write_phy_ocp(tp, 0xa436, 0x8044);
-    mdio_direct_write_phy_ocp(tp, 0xa438, 0x2417);
-    mdio_direct_write_phy_ocp(tp, 0xa436, 0x804A);
-    mdio_direct_write_phy_ocp(tp, 0xa438, 0x2417);
-    mdio_direct_write_phy_ocp(tp, 0xa436, 0x8050);
-    mdio_direct_write_phy_ocp(tp, 0xa438, 0x2417);
-    mdio_direct_write_phy_ocp(tp, 0xa436, 0x8056);
-    mdio_direct_write_phy_ocp(tp, 0xa438, 0x2417);
-    mdio_direct_write_phy_ocp(tp, 0xa436, 0x805C);
-    mdio_direct_write_phy_ocp(tp, 0xa438, 0x2417);
-    mdio_direct_write_phy_ocp(tp, 0xa436, 0x8062);
-    mdio_direct_write_phy_ocp(tp, 0xa438, 0x2417);
-    mdio_direct_write_phy_ocp(tp, 0xa436, 0x8068);
-    mdio_direct_write_phy_ocp(tp, 0xa438, 0x2417);
-    mdio_direct_write_phy_ocp(tp, 0xa436, 0x806E);
-    mdio_direct_write_phy_ocp(tp, 0xa438, 0x2417);
-    mdio_direct_write_phy_ocp(tp, 0xa436, 0x8074);
-    mdio_direct_write_phy_ocp(tp, 0xa438, 0x2417);
-    mdio_direct_write_phy_ocp(tp, 0xa436, 0x807A);
-    mdio_direct_write_phy_ocp(tp, 0xa438, 0x2417);
-    
-    
-    SetEthPhyOcpBit(tp, 0xA4CA, BIT_6);
-    
-    
-    ClearAndSetEthPhyOcpBit(tp,
-                            0xBF84,
-                            BIT_15 | BIT_14 | BIT_13,
-                            BIT_15 | BIT_13
-                            );
-    
-    
-    mdio_direct_write_phy_ocp(tp, 0xA436, 0x8170);
-    ClearAndSetEthPhyOcpBit(tp,
-                            0xA438,
-                            BIT_13 | BIT_10 | BIT_9 | BIT_8,
-                            BIT_15 | BIT_14 | BIT_12 | BIT_11
-                            );
-    
-    /*
-     mdio_direct_write_phy_ocp(tp, 0xBFA0, 0xD70D);
-     mdio_direct_write_phy_ocp(tp, 0xBFA2, 0x4100);
-     mdio_direct_write_phy_ocp(tp, 0xBFA4, 0xE868);
-     mdio_direct_write_phy_ocp(tp, 0xBFA6, 0xDC59);
-     mdio_direct_write_phy_ocp(tp, 0xB54C, 0x3C18);
-     ClearEthPhyOcpBit(tp, 0xBFA4, BIT_5);
-     mdio_direct_write_phy_ocp(tp, 0xA436, 0x817D);
-     SetEthPhyOcpBit(tp, 0xA438, BIT_12);
-     */
-    
-    
-    if (aspm) {
-        if (HW_HAS_WRITE_PHY_MCU_RAM_CODE(tp)) {
-            rtl8125_enable_phy_aldps(tp);
-        }
-    }
-}
+*/

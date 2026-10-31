@@ -18,7 +18,9 @@
 * This driver is based on Realtek's r8125 Linux driver (9.003.04).
 */
 
-#include "LucyRTL8125Linux-900501.hpp"
+//#include "LucyRTL8125Linux-900501.hpp"
+#include "rtl812x.h"
+#include "rtl812x_dash.h"
 #include "RTL8125LucyRxPool.hpp"
 
 #ifdef DEBUG
@@ -33,35 +35,42 @@
 
 enum
 {
-    MEDIUM_INDEX_AUTO = 0,
-    MEDIUM_INDEX_10HD,
-    MEDIUM_INDEX_10FD,
-    MEDIUM_INDEX_100HD,
-    MEDIUM_INDEX_100FD,
-    MEDIUM_INDEX_100FDFC,
-    MEDIUM_INDEX_1000FD,
-    MEDIUM_INDEX_1000FDFC,
-    MEDIUM_INDEX_100FDEEE,
-    MEDIUM_INDEX_100FDFCEEE,
-    MEDIUM_INDEX_1000FDEEE,
-    MEDIUM_INDEX_1000FDFCEEE,
-    MEDIUM_INDEX_2500FD,
-    MEDIUM_INDEX_2500FDFC,
-    MEDIUM_INDEX_COUNT
+    MIDX_AUTO = 0,
+    MIDX_10HD,
+    MIDX_10FD,
+    MIDX_100HD,
+    MIDX_100FD,
+    MIDX_100FDFC,
+    MIDX_100FD_EEE,
+    MIDX_100FDFC_EEE,
+    MIDX_1000FD,
+    MIDX_1000FDFC,
+    MIDX_1000FD_EEE,
+    MIDX_1000FDFC_EEE,
+    MIDX_2500FD,
+    MIDX_2500FDFC,
+    MIDX_2500FD_EEE,
+    MIDX_2500FDFC_EEE,
+    MIDX_5000FD,
+    MIDX_5000FDFC,
+    MIDX_5000FD_EEE,
+    MIDX_5000FDFC_EEE,
+    MIDX_10000FD,
+    MIDX_10000FDFC,
+    MIDX_10000FD_EEE,
+    MIDX_10000FDFC_EEE,
+    MIDX_COUNT
 };
 
 #define MBit 1000000ULL
 
 enum {
+    kSpeed10000MBit = 10000*MBit,
+    kSpeed5000MBit = 5000*MBit,
     kSpeed2500MBit = 2500*MBit,
     kSpeed1000MBit = 1000*MBit,
     kSpeed100MBit = 100*MBit,
     kSpeed10MBit = 10*MBit,
-};
-
-enum {
-    kFlowControlOff = 0,
-    kFlowControlOn = 0x01
 };
 
 enum {
@@ -70,42 +79,20 @@ enum {
     kEEETypeCount
 };
 
+struct rtlMediumTable {
+    IOMediumType    type;
+    UInt64          spd;
+    UInt32          idx;
+    UInt32          speed;
+    UInt32          duplex;
+    UInt32          fc;
+    UInt32          eee;
+    UInt64          adv;
+};
+
 #define kMacHdrLen      14
 #define kIPv4HdrLen     20
 #define kIPv6HdrLen     40
-
-struct ip4_hdr_be {
-    UInt8 hdr_len;
-    UInt8 tos;
-    UInt16 tot_len;
-    UInt16 id;
-    UInt16 frg_off;
-    UInt8 ttl;
-    UInt8 prot;
-    UInt16 csum;
-    UInt16 addr[4];
-};
-
-struct ip6_hdr_be {
-    UInt32 vtc_fl;
-    UInt16 pay_len;
-    UInt8 nxt_hdr;
-    UInt8 hop_l;
-    UInt16 addr[16];
-};
-
-struct tcp_hdr_be {
-    UInt16 src_prt;
-    UInt16 dst_prt;
-    UInt32 seq_num;
-    UInt32 ack_num;
-    UInt8 dat_off;
-    UInt8 flags;
-    UInt16 wnd;
-    UInt16 csum;
-    UInt16 uptr;
-};
-
 
 enum RtlStateFlags {
     __ENABLED = 0,      /* driver is enabled */
@@ -282,17 +269,16 @@ enum
 };
 
 #define kParamName "Driver Parameters"
-#define kEnableEeeName "enableEEE"
+#define kEnableASPM "enableASPM"
 #define kEnableCSO6Name "enableCSO6"
 #define kEnableTSO4Name "enableTSO4"
 #define kEnableTSO6Name "enableTSO6"
-#define kPollInt2500Name "µsPollInt2500"
-#define kDisableASPMName "disableASPM"
+#define kPollTime10GName "µsPollTime10G"
+#define kPollTime5GName "µsPollTime5G"
+#define kPollTime2GName "µsPollTime2G"
 #define kDriverVersionName "Driver Version"
 #define kFallbackName "fallbackMAC"
 #define kNameLenght 64
-
-#define kEnableRxPollName "rxPolling"
 
 extern const struct RTLChipInfo rtl_chip_info[];
 
@@ -431,36 +417,29 @@ private:
 
     void clearRxTxRings();
     void discardPacketFragment();
-    void checkLinkStatus();
+    void rtl812xCheckLinkStatus(struct rtl8125_private *tp);
     void setLinkUp();
     void setLinkDown();
     bool txHangCheck();
 
     /* Hardware initialization methods. */
-    IOReturn identifyChip();
-    bool initRTL8125();
+    bool rtl812xIdentifyChip(struct rtl8125_private *tp);
+    bool rtl812xInit();
     void initMacAddr(struct rtl8125_private *tp);
-    void enableRTL8125();
-    void disableRTL8125();
-    void setupRTL8125();
-    void setOffset79(UInt8 setting);
-    void restartRTL8125();
-    void setPhyMedium();
-    UInt8 csiFun0ReadByte(UInt32 addr);
-    void csiFun0WriteByte(UInt32 addr, UInt8 value);
-    void enablePCIOffset99();
-    void disablePCIOffset99();
-    void initPCIOffset99();
-    void setPCI99_180ExitDriverPara();
-    void hardwareD3Para();
-    UInt16 getEEEMode();
-    void exitOOB();
-    void powerDownPLL();
-    void configPhyHardware();
-    void configPhyHardware8125a1();
-    void configPhyHardware8125a2();
-    void configPhyHardware8125b1();
-    void configPhyHardware8125b2();
+    void rtl812xEnable();
+    void rtl812xDisable();
+    void rtl812xHwInit(struct rtl8125_private *tp);
+    void rtl812xHwConfig(struct rtl8125_private *tp);
+    void rtl812xSetMrrs(struct rtl8125_private *tp, UInt8 setting);
+    void rtl812xSetOffloadFeatures(bool active);
+    void rtl812xRestart();
+    void rtl812xSetPhyMedium(struct rtl8125_private *tp, UInt8 autoneg, UInt32 speed, UInt8 duplex, UInt64 adv);
+    void rtl812xMedium2Adv(struct rtl8125_private *tp, UInt32 index);
+    void rtl812xGetEEEMode(struct rtl8125_private *tp);
+    void rtl812xLinkDownPatch(struct rtl8125_private *tp);
+    void rtl812xLinkOnPatch(struct rtl8125_private *tp);
+    UInt32 rtl812xGetHwCloPtr(struct rtl8125_private *tp);
+    void rtl812xDoorbell(struct rtl8125_private *tp, UInt32 txTailPtr);
 
     void rtl812xDumpTallyCounter(struct rtl8125_private *tp);
     static void runStatUpdateThread(thread_call_param_t param0);
@@ -490,7 +469,7 @@ private:
     IOCommandGate *commandGate;
     IOPCIDevice *pciDevice;
     OSDictionary *mediumDict;
-    IONetworkMedium *mediumTable[MEDIUM_INDEX_COUNT];
+    IONetworkMedium *mediumTable[MIDX_COUNT];
     IOBasicOutputQueue *txQueue;
     
     IOInterruptEventSource *interruptSource;
@@ -530,8 +509,6 @@ private:
     UInt64 multicastFilter;
     mbuf_t rxPacketHead;
     mbuf_t rxPacketTail;
-    UInt32 rxConfigReg;
-    UInt32 rxConfigMask;
     SInt32 rxPacketSize;
     UInt16 rxNextDescIndex;
     UInt16 rxMapNextIndex;
@@ -552,24 +529,23 @@ private:
     struct RtlStatData *statData;
 
     UInt32 mtu;
-    UInt32 speed;
-    UInt32 duplex;
-    UInt16 flowCtl;
-    UInt16 autoneg;
-    UInt16 eeeCap;
-    UInt16 eeeMode;
     struct pci_dev pciDeviceData;
     struct rtl8125_private linuxData;
+    const struct RtlChipInfo *rtlChipInfos;
     struct IOEthernetAddress currMacAddr;
     struct IOEthernetAddress origMacAddr;
     struct IOEthernetAddress fallBackMacAddr;
+    IONetworkPacketPollingParameters pollParms;
 
-    UInt32 pollInterval2500;
     UInt32 intrMask;
     UInt32 intrMaskRxTx;
     UInt32 intrMaskTimer;
     UInt32 intrMaskPoll;
 
+    /* poll intervals in ns */
+    UInt64 pollTime10G;
+    UInt64 pollTime5G;
+    UInt64 pollTime2G;
     UInt64 statDelay;
     UInt64 timerInterval;
 
@@ -578,6 +554,7 @@ private:
     
     bool wolCapable;
     bool wolActive;
+    bool enableASPM;
     bool enableTSO4;
     bool enableTSO6;
     bool useAppleVTD;

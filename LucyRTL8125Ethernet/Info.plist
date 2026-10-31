@@ -28,11 +28,7 @@
 			<string>com.insanelymac.${PRODUCT_NAME:rfc1034identifier}</string>
 			<key>Driver Parameters</key>
 			<dict>
-				<key>disableASPM</key>
-				<true/>
-				<key>enableCSO6</key>
-				<true/>
-				<key>enableEEE</key>
+				<key>enableASPM</key>
 				<true/>
 				<key>enableTSO4</key>
 				<true/>
@@ -40,17 +36,21 @@
 				<true/>
 				<key>fallbackMAC</key>
 				<string></string>
-				<key>µsPollInt2500</key>
-				<integer>110</integer>
+				<key>µsPollTime10G</key>
+				<integer>100</integer>
+				<key>µsPollTime2G</key>
+				<integer>160</integer>
+				<key>µsPollTime5G</key>
+				<integer>130</integer>
 			</dict>
 			<key>Driver Version</key>
 			<string>$MODULE_VERSION</string>
 			<key>IOClass</key>
 			<string>LucyRTL8125</string>
 			<key>IOPCIMatch</key>
-			<string>0x812510ec 0x81251186 0x300010ec</string>
+			<string>0x812510ec 0x81251186 0x300010ec 0x812610ec 0x500010ec</string>
 			<key>IOProbeScore</key>
-			<integer>1000</integer>
+			<integer>2000</integer>
 			<key>IOProviderClass</key>
 			<string>IOPCIDevice</string>
 			<key>Model</key>

@@ -27,6 +27,138 @@ static inline void prepareTSO6(mbuf_t m, UInt32 *tcpOffset, UInt32 *mss);
 
 static inline u32 ether_crc(int length, unsigned char *data);
 
+
+#pragma mark --- static data ---
+
+//static const char *speed10GName = "10 Gigabit";
+static const char *speed5GName = "5 Gigabit";
+static const char *speed25GName = "2.5 Gigabit";
+static const char *speed1GName = "1 Gigabit";
+static const char *speed100MName = "100 Megabit";
+static const char *speed10MName = "10 Megabit";
+static const char *duplexFullName = "full-duplex";
+static const char *duplexHalfName = "half-duplex";
+static const char *offFlowName = "no flow-control";
+static const char *onFlowName = "flow-control";
+
+#define _R(NAME,SNAME,MAC,RCR,MASK,JumFrameSz) \
+    { .name = NAME, .speed_name = SNAME, .mcfg = MAC, .RCR_Cfg = RCR, .RxConfigMask = MASK, .jumbo_frame_sz = JumFrameSz }
+
+const struct RtlChipInfo rtlChipInfo[NUM_CHIPS] {
+    _R("RTL8125A",
+    "2.5",
+    CFG_METHOD_2,
+    Rx_Fetch_Number_8 | EnableInnerVlan | EnableOuterVlan | (RX_DMA_BURST_256 << RxCfgDMAShift),
+    0xff7e5880,
+    Jumbo_Frame_9k),
+
+    _R("RTL8125A",
+    "2.5",
+    CFG_METHOD_3,
+    Rx_Fetch_Number_8 | EnableInnerVlan | EnableOuterVlan | (RX_DMA_BURST_256 << RxCfgDMAShift),
+    0xff7e5880,
+    Jumbo_Frame_9k),
+
+    _R("RTL8125B",
+    "2.5",
+    CFG_METHOD_4,
+    Rx_Fetch_Number_8 | RxCfg_pause_slot_en | EnableInnerVlan | EnableOuterVlan | (RX_DMA_BURST_256 << RxCfgDMAShift),
+    0xff7e5880,
+    Jumbo_Frame_9k),
+
+    _R("RTL8125B",
+    "2.5",
+    CFG_METHOD_5,
+    Rx_Fetch_Number_8 | RxCfg_pause_slot_en | EnableInnerVlan | EnableOuterVlan | (RX_DMA_BURST_256 << RxCfgDMAShift),
+    0xff7e5880,
+    Jumbo_Frame_9k),
+
+    _R("RTL8168KB",
+    "2.5",
+    CFG_METHOD_6,
+    Rx_Fetch_Number_8 | EnableInnerVlan | EnableOuterVlan | (RX_DMA_BURST_256 << RxCfgDMAShift),
+    0xff7e5880,
+    Jumbo_Frame_9k),
+
+    _R("RTL8168KB",
+    "2.5",
+    CFG_METHOD_7,
+    Rx_Fetch_Number_8 | RxCfg_pause_slot_en | EnableInnerVlan | EnableOuterVlan | (RX_DMA_BURST_256 << RxCfgDMAShift),
+    0xff7e5880,
+    Jumbo_Frame_9k),
+
+    _R("RTL8125BP",
+    "2.5",
+    CFG_METHOD_8,
+    Rx_Fetch_Number_8 | Rx_Close_Multiple | RxCfg_pause_slot_en | EnableInnerVlan | EnableOuterVlan | (RX_DMA_BURST_256 << RxCfgDMAShift),
+    0xff7e5880,
+    Jumbo_Frame_9k),
+
+    _R("RTL8125BP",
+    "2.5",
+    CFG_METHOD_9,
+    Rx_Fetch_Number_8 | Rx_Close_Multiple | RxCfg_pause_slot_en | EnableInnerVlan | EnableOuterVlan | (RX_DMA_BURST_256 << RxCfgDMAShift),
+    0xff7e5880,
+    Jumbo_Frame_9k),
+
+    _R("RTL8125D",
+    "2.5",
+    CFG_METHOD_10,
+    Rx_Fetch_Number_8 | Rx_Close_Multiple | RxCfg_pause_slot_en | EnableInnerVlan | EnableOuterVlan | (RX_DMA_BURST_256 << RxCfgDMAShift),
+    0xff7e5880,
+    Jumbo_Frame_9k),
+
+    _R("RTL8125D",
+    "2.5",
+    CFG_METHOD_11,
+    Rx_Fetch_Number_8 | Rx_Close_Multiple | RxCfg_pause_slot_en | EnableInnerVlan | EnableOuterVlan | (RX_DMA_BURST_256 << RxCfgDMAShift),
+    0xff7e5880,
+    Jumbo_Frame_9k),
+
+    _R("RTL8125CP",
+    "2.5",
+    CFG_METHOD_12,
+    Rx_Fetch_Number_8 | Rx_Close_Multiple | RxCfg_pause_slot_en | EnableInnerVlan | EnableOuterVlan | (RX_DMA_BURST_256 << RxCfgDMAShift),
+    0xff7e5880,
+    Jumbo_Frame_9k),
+
+    _R("RTL8168KD",
+    "2.5",
+    CFG_METHOD_13,
+    Rx_Fetch_Number_8 | Rx_Close_Multiple | RxCfg_pause_slot_en | EnableInnerVlan | EnableOuterVlan | (RX_DMA_BURST_256 << RxCfgDMAShift),
+    0xff7e5880,
+    Jumbo_Frame_9k),
+    
+    _R("RTL8126A",
+    "5",
+    CFG_METHOD_31,
+    Rx_Fetch_Number_8 | RxCfg_pause_slot_en | EnableInnerVlan | EnableOuterVlan | (RX_DMA_BURST_512 << RxCfgDMAShift),
+    0xff7e5880,
+    Jumbo_Frame_9k),
+
+    _R("RTL8126A",
+    "5",
+    CFG_METHOD_32,
+    Rx_Fetch_Number_8 | Rx_Close_Multiple | RxCfg_pause_slot_en | EnableInnerVlan | EnableOuterVlan | (RX_DMA_BURST_512 << RxCfgDMAShift),
+    0xff7e5880,
+    Jumbo_Frame_9k),
+
+    _R("RTL8126A",
+    "5",
+    CFG_METHOD_33,
+    Rx_Fetch_Number_8 | Rx_Close_Multiple | RxCfg_pause_slot_en | EnableInnerVlan | EnableOuterVlan | (RX_DMA_BURST_512 << RxCfgDMAShift),
+    0xff7e5880,
+    Jumbo_Frame_9k),
+
+    _R("Unknown",
+    "2.5",
+    CFG_METHOD_DEFAULT,
+    (RX_DMA_BURST_512 << RxCfgDMAShift),
+    0xff7e5880,
+    Jumbo_Frame_1k)
+};
+#undef _R
+
 #pragma mark --- public methods ---
 
 OSDefineMetaClassAndStructors(LucyRTL8125, super)
@@ -67,23 +199,25 @@ bool LucyRTL8125::init(OSDictionary *properties)
         
         mtu = ETH_DATA_LEN;
         powerState = 0;
-        speed = 0;
-        duplex = DUPLEX_FULL;
-        autoneg = AUTONEG_ENABLE;
-        flowCtl = kFlowControlOff;
-        eeeCap = 0;
+        //speed = 0;
+        //duplex = DUPLEX_FULL;
+        //autoneg = AUTONEG_ENABLE;
+        //flowCtl = kFlowControlOff;
+        //eeeCap = 0;
+        memset(&linuxData, 0, sizeof(struct rtl8125_private));
         linuxData.mmio_addr = NULL;
-        linuxData.configASPM = 0;
-        linuxData.configEEE = 0;
-        linuxData.s0MagicPacket = 0;
-        linuxData.hwoptimize = 0;
+        linuxData.aspm = 0;
+        //linuxData.configEEE = 0;
+        //linuxData.s0MagicPacket = 0;
+        //linuxData.hwoptimize = 0;
         linuxData.DASH = 0;
         pciDeviceData.vendor = 0;
         pciDeviceData.device = 0;
         pciDeviceData.subsystem_vendor = 0;
         pciDeviceData.subsystem_device = 0;
         linuxData.pci_dev = &pciDeviceData;
-        pollInterval2500 = 0;
+        rtlChipInfos = &rtlChipInfo[0];
+        //pollInterval2500 = 0;
         wolCapable = false;
         wolActive = false;
         enableTSO4 = false;
@@ -125,9 +259,9 @@ void LucyRTL8125::free()
     RELEASE(txQueue);
     RELEASE(mediumDict);
     
-    for (i = MEDIUM_INDEX_AUTO; i < MEDIUM_INDEX_COUNT; i++)
+    for (i = MIDX_AUTO; i < MIDX_COUNT; i++)
         mediumTable[i] = NULL;
-    
+
     RELEASE(baseMap);
     linuxData.mmio_addr = NULL;
     
@@ -174,7 +308,7 @@ bool LucyRTL8125::start(IOService *provider)
         goto error_cfg;
     }
 
-    if (!initRTL8125()) {
+    if (!rtl812xInit()) {
         IOLog("Failed to initialize chip.\n");
         goto error_cfg;
     }
@@ -271,7 +405,7 @@ void LucyRTL8125::stop(IOService *provider)
     RELEASE(txQueue);
     RELEASE(mediumDict);
     
-    for (i = MEDIUM_INDEX_AUTO; i < MEDIUM_INDEX_COUNT; i++)
+    for (i = MIDX_AUTO; i < MIDX_COUNT; i++)
         mediumTable[i] = NULL;
 
     freeStatResources();
@@ -369,10 +503,10 @@ IOReturn LucyRTL8125::enable(IONetworkInterface *netif)
     
     if (!selectedMedium) {
         DebugLog("No medium selected. Falling back to autonegotiation.\n");
-        selectedMedium = mediumTable[MEDIUM_INDEX_AUTO];
+        selectedMedium = mediumTable[MIDX_AUTO];
     }
     selectMedium(selectedMedium);
-    enableRTL8125();
+    rtl812xEnable();
     
     /* We have to enable the interrupt because we are using a msi interrupt. */
     interruptSource->enable();
@@ -426,7 +560,7 @@ IOReturn LucyRTL8125::disable(IONetworkInterface *netif)
     /* Disable interrupt as we are using msi. */
     interruptSource->disable();
 
-    disableRTL8125();
+    rtl812xDisable();
     
     clearRxTxRings();
     
@@ -577,7 +711,7 @@ IOReturn LucyRTL8125::outputStart(IONetworkInterface *interface, IOOptionBits op
         firstDesc->opts1 |= DescOwn;
     }
     /* Update tail pointer. */
-    RTL_W16(&linuxData, SW_TAIL_PTR0_8125, txTailPtr0 & 0xffff);
+    rtl812xDoorbell(&linuxData, txTailPtr0);
 
     result = (txNumFreeDesc > (kMaxSegs + 3)) ? kIOReturnSuccess : kIOReturnNoResources;
     
@@ -620,7 +754,7 @@ const OSString* LucyRTL8125::newModelString() const
     DebugLog("newModelString() ===>\n");
     DebugLog("newModelString() <===\n");
     
-    return OSString::withCString(rtl_chip_info[linuxData.chipset].name);
+    return OSString::withCString(rtlChipInfo[linuxData.chipset].name);
 }
 
 bool LucyRTL8125::configureInterface(IONetworkInterface *interface)
@@ -675,7 +809,7 @@ bool LucyRTL8125::configureInterface(IONetworkInterface *interface)
         result = false;
         goto done;
     }
-    snprintf(modelName, kNameLenght, "Realtek %s PCIe 2.5 Gbit Ethernet", rtl_chip_info[linuxData.chipset].name);
+    snprintf(modelName, kNameLenght, "Realtek %s PCIe %sGbit Ethernet", rtlChipInfo[linuxData.chipset].name, rtlChipInfo[linuxData.chipset].speed_name);
     setProperty("model", modelName);
     
     DebugLog("configureInterface() <===\n");
@@ -740,7 +874,7 @@ IOReturn LucyRTL8125::setPromiscuousMode(bool active)
         mcFilter[0] = *filterAddr++;
         mcFilter[1] = *filterAddr;
     }
-    rxMode |= rxConfigReg | (RTL_R32(tp, RxConfig) & rxConfigMask);
+    rxMode |= tp->rtl8125_rx_config | (RTL_R32(tp, RxConfig) & rtlChipInfos[tp->chipset].RxConfigMask);
     RTL_W32(tp, RxConfig, rxMode);
     RTL_W32(tp, MAR0, mcFilter[0]);
     RTL_W32(tp, MAR1, mcFilter[1]);
@@ -772,7 +906,7 @@ IOReturn LucyRTL8125::setMulticastMode(bool active)
         rxMode = (AcceptBroadcast | AcceptMyPhys);
         mcFilter[1] = mcFilter[0] = 0;
     }
-    rxMode |= rxConfigReg | (RTL_R32(tp, RxConfig) & rxConfigMask);
+    rxMode |= tp->rtl8125_rx_config | (RTL_R32(tp, RxConfig) & rtlChipInfos[tp->chipset].RxConfigMask);
     RTL_W32(tp, RxConfig, rxMode);
     RTL_W32(tp, MAR0, mcFilter[0]);
     RTL_W32(tp, MAR1, mcFilter[1]);
@@ -906,102 +1040,19 @@ IOReturn LucyRTL8125::setHardwareAddress(const IOEthernetAddress *addr)
 
 IOReturn LucyRTL8125::selectMedium(const IONetworkMedium *medium)
 {
+    struct rtl8125_private *tp = &linuxData;
     IOReturn result = kIOReturnSuccess;
+    UInt32 index;
     
     DebugLog("selectMedium() ===>\n");
     
     if (medium) {
-        autoneg = AUTONEG_DISABLE;
-        flowCtl = kFlowControlOff;
-        linuxData.eee_adv_t = 0;
+        index = medium->getIndex();
         
-        switch (medium->getIndex()) {
-            case MEDIUM_INDEX_AUTO:
-                autoneg = AUTONEG_ENABLE;
-                speed = 0;
-                duplex = DUPLEX_FULL;
-                //linuxData.eee_adv_t = eeeCap;
-                break;
-                
-            case MEDIUM_INDEX_10HD:
-                speed = SPEED_10;
-                duplex = DUPLEX_HALF;
-                break;
-                
-            case MEDIUM_INDEX_10FD:
-                speed = SPEED_10;
-                duplex = DUPLEX_FULL;
-                break;
-                
-            case MEDIUM_INDEX_100HD:
-                speed = SPEED_100;
-                duplex = DUPLEX_HALF;
-                break;
-                
-            case MEDIUM_INDEX_100FD:
-                speed = SPEED_100;
-                duplex = DUPLEX_FULL;
-                break;
-                
-            case MEDIUM_INDEX_100FDFC:
-                speed = SPEED_100;
-                duplex = DUPLEX_FULL;
-                flowCtl = kFlowControlOn;
-                break;
-                
-            case MEDIUM_INDEX_1000FD:
-                speed = SPEED_1000;
-                duplex = DUPLEX_FULL;
-                break;
-                
-            case MEDIUM_INDEX_1000FDFC:
-                speed = SPEED_1000;
-                duplex = DUPLEX_FULL;
-                flowCtl = kFlowControlOn;
-                break;
-                
-            case MEDIUM_INDEX_100FDEEE:
-                speed = SPEED_100;
-                duplex = DUPLEX_FULL;
-                linuxData.eee_adv_t = eeeCap;
-                break;
-                
-            case MEDIUM_INDEX_100FDFCEEE:
-                speed = SPEED_100;
-                duplex = DUPLEX_FULL;
-                flowCtl = kFlowControlOn;
-                linuxData.eee_adv_t = eeeCap;
-                break;
-                
-            case MEDIUM_INDEX_1000FDEEE:
-                speed = SPEED_1000;
-                duplex = DUPLEX_FULL;
-                linuxData.eee_adv_t = eeeCap;
-                break;
-                
-            case MEDIUM_INDEX_1000FDFCEEE:
-                speed = SPEED_1000;
-                duplex = DUPLEX_FULL;
-                flowCtl = kFlowControlOn;
-                linuxData.eee_adv_t = eeeCap;
-                break;
-                
-            case MEDIUM_INDEX_2500FD:
-                speed = SPEED_2500;
-                duplex = DUPLEX_FULL;
-                break;
-                
-            case MEDIUM_INDEX_2500FDFC:
-                speed = SPEED_2500;
-                duplex = DUPLEX_FULL;
-                flowCtl = kFlowControlOn;
-                break;                
-        }
-        //setPhyMedium();
+        rtl812xMedium2Adv(tp, index);
         setCurrentMedium(medium);
         setLinkDown();
     }
-    
     DebugLog("selectMedium() <===\n");
     
 done:
@@ -1025,38 +1076,26 @@ IOReturn LucyRTL8125::getMaxPacketSize(UInt32 * maxSize) const
 
 IOReturn LucyRTL8125::setMaxPacketSize(UInt32 maxSize)
 {
-    ifnet_t ifnet = netif->getIfnet();
-    ifnet_offload_t offload;
-    UInt32 mask = 0;
+    struct rtl8125_private *tp = &linuxData;
     IOReturn result = kIOReturnError;
 
     DebugLog("setMaxPacketSize() ===>\n");
     
     if (maxSize <= kMaxPacketSize) {
-        mtu = maxSize - (ETH_HLEN + VLAN_HLEN);
+        mtu = maxSize - (VLAN_ETH_HLEN);
         DebugLog("maxSize: %u, mtu: %u\n", maxSize, mtu);
         
-        if (enableTSO4)
-            mask |= IFNET_TSO_IPV4;
+        /* Adjust maximum rx size. */
+        tp->rms = mtu + VLAN_ETH_HLEN + ETH_FCS_LEN;
         
-        if (enableTSO6)
-            mask |= IFNET_TSO_IPV6;
+        rtl812xSetOffloadFeatures(mtu <= MSS_MAX);
 
-        offload = ifnet_offload(ifnet);
-        
-        if (mtu > MSS_MAX) {
-            offload &= ~mask;
-            DebugLog("Disable hardware offload features: %x!\n", mask);
-        } else {
-            offload |= mask;
-            DebugLog("Enable hardware offload features: %x!\n", mask);
-        }
-        if (ifnet_set_offload(ifnet, offload))
-            IOLog("Error setting hardware offload: %x!\n", offload);
         /* Force reinitialization. */
         setLinkDown();
         timerSource->cancelTimeout();
-        restartRTL8125();
+        
+        tp->eee.tx_lpi_timer = mtu + ETH_HLEN + 0x20;
+        rtl812xRestart();
         
         result = kIOReturnSuccess;
     }
@@ -1070,12 +1109,13 @@ IOReturn LucyRTL8125::setMaxPacketSize(UInt32 maxSize)
 
 void LucyRTL8125::txInterrupt()
 {
+    struct rtl8125_private *tp = &linuxData;
     mbuf_t m;
-    UInt32 nextClosePtr = RTL_R16(&linuxData, HW_CLO_PTR0_8125);
+    UInt32 nextClosePtr = rtl812xGetHwCloPtr(tp);
     UInt32 oldDirtyIndex = txDirtyDescIndex;
     UInt32 numDone;
 
-    numDone = ((nextClosePtr - txClosePtr0) & 0xffff);
+    numDone = ((nextClosePtr - txClosePtr0) & tp->MaxTxDescPtrMask);
 
 #ifdef DEBUG_INTR
     DebugLog("txInterrupt() numDone: %u.\n", numDone);
@@ -1239,6 +1279,65 @@ handle_pkt:
     return goodPkts;
 }
 
+void LucyRTL8125::rtl812xCheckLinkStatus(struct rtl8125_private *tp)
+{
+    UInt64 now;
+    UInt32 status;
+    
+    status = RTL_R32(tp, PHYstatus);
+    
+    if ((status == 0xffffffff) || !(status & LinkStatus)) {
+        rtl812xLinkDownPatch(tp);
+        
+        /* Stop watchdog and statistics updates. */
+        timerSource->cancelTimeout();
+        setLinkDown();
+        
+        clearRxTxRings();
+    } else {
+        /* Get EEE mode. */
+        rtl812xGetEEEMode(tp);
+        
+        /* Get link speed, duplex and flow-control mode. */
+        if (status & (TxFlowCtrl | RxFlowCtrl)) {
+            tp->fcpause = rtl8125_fc_full;
+        } else {
+            tp->fcpause = rtl8125_fc_none;
+        }
+        if (status & _5000bpsF) {
+            tp->speed = SPEED_5000;
+            tp->duplex = DUPLEX_FULL;
+        } else if (status & (_2500bpsF | _5000bpsL)) {
+            tp->speed = SPEED_2500;
+            tp->duplex = DUPLEX_FULL;
+        } else if (status & (_1000bpsF | _2500bpsL | _1000bpsL)) {
+                tp->speed = SPEED_1000;
+                tp->duplex = DUPLEX_FULL;
+        } else if (status & _100bps) {
+            tp->speed = SPEED_100;
+            
+            if (status & FullDup) {
+                tp->duplex = DUPLEX_FULL;
+            } else {
+                tp->duplex = DUPLEX_HALF;
+            }
+        } else {
+            tp->speed = SPEED_10;
+            
+            if (status & FullDup) {
+                tp->duplex = DUPLEX_FULL;
+            } else {
+                tp->duplex = DUPLEX_HALF;
+            }
+        }
+        rtl812xLinkOnPatch(tp);
+
+        setLinkUp();
+        clock_get_uptime(&now);
+        timerSource->wakeAtTime(now + timerInterval);
+    }
+}
+/*
 void LucyRTL8125::checkLinkStatus()
 {
     struct rtl8125_private *tp = &linuxData;
@@ -1250,10 +1349,10 @@ void LucyRTL8125::checkLinkStatus()
     currLinkState = RTL_R16(tp, PHYstatus);
     
     if (currLinkState & LinkStatus) {
-        /* Get EEE mode. */
+        // Get EEE mode.
         eeeMode = getEEEMode();
         
-        /* Get link speed, duplex and flow-control mode. */
+        // Get link speed, duplex and flow-control mode.
         if (currLinkState & (TxFlowCtrl | RxFlowCtrl)) {
             flowCtl = kFlowControlOn;
         } else {
@@ -1311,12 +1410,12 @@ void LucyRTL8125::checkLinkStatus()
             tp->mcfg == CFG_METHOD_5)
                 rtl8125_disable_eee_plus(tp);
 
-        /* Stop watchdog and statistics updates. */
+        // Stop watchdog and statistics updates.
         timerSource->cancelTimeout();
         setLinkDown();
     }
 }
-
+*/
 void LucyRTL8125::interruptOccurred(OSObject *client, IOInterruptEventSource *src, int count)
 {
     struct rtl8125_private *tp = &linuxData;
@@ -1368,7 +1467,8 @@ void LucyRTL8125::interruptOccurred(OSObject *client, IOInterruptEventSource *sr
         clear_bit(__POLLING, &stateFlags);
     }
     if (status & LinkChg) {
-        checkLinkStatus();
+        rtl812xCheckLinkStatus(tp);
+        //checkLinkStatus();
         RTL_W32(tp, TIMER_INT0_8125, 0x000);
         intrMask = intrMaskRxTx;
     }
@@ -1404,7 +1504,7 @@ bool LucyRTL8125::txHangCheck()
             IOLog("Tx stalled? Resetting chipset. ISR0=0x%x, IMR0=0x%x.\n", RTL_R32(tp, ISR0_8125),
                   RTL_R32(tp, IMR0_8125));
             etherStats->dot3TxExtraEntry.resets++;
-            restartRTL8125();
+            rtl812xRestart();
             deadlock = true;
         }
     } else {
@@ -1477,15 +1577,6 @@ void LucyRTL8125::getChecksumResult(mbuf_t m, UInt32 status1, UInt32 status2)
         mbuf_set_csum_performed(m, performed, value);
 }
 
-static const char *speed25GName = "2.5 Gigabit";
-static const char *speed1GName = "1 Gigabit";
-static const char *speed100MName = "100 Megabit";
-static const char *speed10MName = "10 Megabit";
-static const char *duplexFullName = "full-duplex";
-static const char *duplexHalfName = "half-duplex";
-static const char *offFlowName = "no flow-control";
-static const char *onFlowName = "flow-control";
-
 static const char* eeeNames[kEEETypeCount] = {
     "",
     ", energy-efficient-ethernet"
@@ -1493,95 +1584,133 @@ static const char* eeeNames[kEEETypeCount] = {
 
 void LucyRTL8125::setLinkUp()
 {
-    IONetworkPacketPollingParameters pParams;
-    UInt64 mediumSpeed;
-    UInt32 mediumIndex = MEDIUM_INDEX_AUTO;
+    struct rtl8125_private *tp = &linuxData;
     const char *speedName;
     const char *duplexName;
     const char *flowName;
     const char *eeeName;
+    UInt64 mediumSpeed;
+    UInt32 mediumIndex = MIDX_AUTO;
+    UInt32 spd = tp->speed;
+    UInt32 fc = tp->fcpause;
+    bool eee;
     
+    eee = tp->eee.eee_active;
     eeeName = eeeNames[kEEETypeNo];
 
     /* Get link speed, duplex and flow-control mode. */
-    if (flowCtl == kFlowControlOn) {
+    if (fc == rtl8125_fc_full) {
         flowName = onFlowName;
     } else {
         flowName = offFlowName;
     }
-    if (speed == SPEED_2500) {
+    if (spd == SPEED_5000) {
+        mediumSpeed = kSpeed5000MBit;
+        speedName = speed5GName;
+        duplexName = duplexFullName;
+       
+        if (fc == rtl8125_fc_full) {
+            if (eee) {
+                mediumIndex = MIDX_5000FDFC_EEE;
+                eeeName = eeeNames[kEEETypeYes];
+            } else {
+                mediumIndex = MIDX_5000FDFC;
+                eeeName = eeeNames[kEEETypeNo];
+            }
+        } else {
+            if (eee) {
+                mediumIndex = MIDX_5000FD_EEE;
+                eeeName = eeeNames[kEEETypeYes];
+            } else {
+                mediumIndex = MIDX_5000FD;
+                eeeName = eeeNames[kEEETypeNo];
+            }
+        }
+    } else if (spd == SPEED_2500) {
         mediumSpeed = kSpeed2500MBit;
         speedName = speed25GName;
         duplexName = duplexFullName;
        
-        if (flowCtl == kFlowControlOn) {
-            mediumIndex = MEDIUM_INDEX_2500FDFC;
+        if (fc == rtl8125_fc_full) {
+            if (eee) {
+                mediumIndex = MIDX_2500FDFC_EEE;
+                eeeName = eeeNames[kEEETypeYes];
+            } else {
+                mediumIndex = MIDX_2500FDFC;
+                eeeName = eeeNames[kEEETypeNo];
+            }
         } else {
-            mediumIndex = MEDIUM_INDEX_2500FD;
+            if (eee) {
+                mediumIndex = MIDX_2500FD_EEE;
+                eeeName = eeeNames[kEEETypeYes];
+            } else {
+                mediumIndex = MIDX_2500FD;
+                eeeName = eeeNames[kEEETypeNo];
+            }
         }
-    } else if (speed == SPEED_1000) {
+    } else if (spd == SPEED_1000) {
         mediumSpeed = kSpeed1000MBit;
         speedName = speed1GName;
         duplexName = duplexFullName;
        
-        if (flowCtl == kFlowControlOn) {
-            if (eeeMode & MDIO_EEE_1000T) {
-                mediumIndex = MEDIUM_INDEX_1000FDFCEEE;
+        if (fc == rtl8125_fc_full) {
+            if (eee) {
+                mediumIndex = MIDX_1000FDFC_EEE;
                 eeeName = eeeNames[kEEETypeYes];
             } else {
-                mediumIndex = MEDIUM_INDEX_1000FDFC;
+                mediumIndex = MIDX_1000FDFC;
             }
         } else {
-            if (eeeMode & MDIO_EEE_1000T) {
-                mediumIndex = MEDIUM_INDEX_1000FDEEE;
+            if (eee) {
+                mediumIndex = MIDX_1000FD_EEE;
                 eeeName = eeeNames[kEEETypeYes];
             } else {
-                mediumIndex = MEDIUM_INDEX_1000FD;
+                mediumIndex = MIDX_1000FD;
             }
         }
-    } else if (speed == SPEED_100) {
+    } else if (spd == SPEED_100) {
         mediumSpeed = kSpeed100MBit;
         speedName = speed100MName;
         
-        if (duplex == DUPLEX_FULL) {
+        if (tp->duplex == DUPLEX_FULL) {
             duplexName = duplexFullName;
             
-            if (flowCtl == kFlowControlOn) {
-                if (eeeMode & MDIO_EEE_100TX) {
-                    mediumIndex =  MEDIUM_INDEX_100FDFCEEE;
+            if (fc == rtl8125_fc_full) {
+                if (eee) {
+                    mediumIndex =  MIDX_100FDFC_EEE;
                     eeeName = eeeNames[kEEETypeYes];
                 } else {
-                    mediumIndex = MEDIUM_INDEX_100FDFC;
+                    mediumIndex = MIDX_100FDFC;
                 }
             } else {
-                if (eeeMode & MDIO_EEE_100TX) {
-                    mediumIndex =  MEDIUM_INDEX_100FDEEE;
+                if (eee) {
+                    mediumIndex =  MIDX_100FD_EEE;
                     eeeName = eeeNames[kEEETypeYes];
                 } else {
-                    mediumIndex = MEDIUM_INDEX_100FD;
+                    mediumIndex = MIDX_100FD;
                 }
             }
         } else {
-            mediumIndex = MEDIUM_INDEX_100HD;
+            mediumIndex = MIDX_100HD;
             duplexName = duplexHalfName;
         }
     } else {
         mediumSpeed = kSpeed10MBit;
         speedName = speed10MName;
         
-        if (duplex == DUPLEX_FULL) {
-            mediumIndex = MEDIUM_INDEX_10FD;
+        if (tp->duplex == DUPLEX_FULL) {
+            mediumIndex = MIDX_10FD;
             duplexName = duplexFullName;
         } else {
-            mediumIndex = MEDIUM_INDEX_10HD;
+            mediumIndex = MIDX_10HD;
             duplexName = duplexHalfName;
         }
     }
     rxPacketHead = rxPacketTail = NULL;
     rxPacketSize = 0;
 
-    /* Enable receiver and transmitter. */
-    RTL_W8(&linuxData, ChipCmd, CmdTxEnb | CmdRxEnb);
+    /* Start hardware. */
+    RTL_W8(tp, ChipCmd, CmdTxEnb | CmdRxEnb);
 
     set_bit(__LINK_UP, &stateFlags);
     setLinkStatus(kIONetworkLinkValid | kIONetworkLinkActive, mediumTable[mediumIndex], mediumSpeed, NULL);
@@ -1589,29 +1718,31 @@ void LucyRTL8125::setLinkUp()
     /* Start output thread, statistics update and watchdog. Also
      * update poll params according to link speed.
      */
-    bzero(&pParams, sizeof(IONetworkPacketPollingParameters));
+    bzero(&pollParms, sizeof(IONetworkPacketPollingParameters));
     
-    if (speed == SPEED_10) {
-        pParams.lowThresholdPackets = 2;
-        pParams.highThresholdPackets = 8;
-        pParams.lowThresholdBytes = 0x400;
-        pParams.highThresholdBytes = 0x1800;
-        pParams.pollIntervalTime = 1000000;  /* 1ms */
+    if (spd == SPEED_10) {
+        pollParms.lowThresholdPackets = 2;
+        pollParms.highThresholdPackets = 8;
+        pollParms.lowThresholdBytes = 0x400;
+        pollParms.highThresholdBytes = 0x1800;
+        pollParms.pollIntervalTime = 1000000;  /* 1ms */
     } else {
-        pParams.lowThresholdPackets = 10;
-        pParams.highThresholdPackets = 40;
-        pParams.lowThresholdBytes = 0x1000;
-        pParams.highThresholdBytes = 0x10000;
+        pollParms.lowThresholdPackets = 10;
+        pollParms.highThresholdPackets = 40;
+        pollParms.lowThresholdBytes = 0x1000;
+        pollParms.highThresholdBytes = 0x10000;
         
-        if (speed == SPEED_2500)
-            pParams.pollIntervalTime = pollInterval2500;
-        else if (speed == SPEED_1000)
-            pParams.pollIntervalTime = 170000;   /* 170µs */
+        if (spd == SPEED_5000)
+            pollParms.pollIntervalTime = (mtu < 4076) ? pollTime5G : (pollTime5G + 10000);
+        else if (spd == SPEED_2500)
+            pollParms.pollIntervalTime = pollTime2G;
+        else if (spd == SPEED_1000)
+            pollParms.pollIntervalTime = 170000;   /* 170µs */
         else
-            pParams.pollIntervalTime = 1000000;  /* 1ms */
+            pollParms.pollIntervalTime = 1000000;  /* 1ms */
     }
-    netif->setPacketPollingParameters(&pParams, 0);
-    DebugLog("pollIntervalTime: %lluµs\n", (pParams.pollIntervalTime / 1000));
+    netif->setPacketPollingParameters(&pollParms, 0);
+    DebugLog("pollIntervalTime: %lluµs\n", (pollParms.pollIntervalTime / 1000));
 
     netif->startOutputThread();
 
@@ -1620,6 +1751,8 @@ void LucyRTL8125::setLinkUp()
 
 void LucyRTL8125::setLinkDown()
 {
+    struct rtl8125_private *tp = &linuxData;
+    
     deadlockWarn = 0;
 
     /* Stop output thread and flush output queue. */
@@ -1630,12 +1763,14 @@ void LucyRTL8125::setLinkDown()
     clear_mask((__LINK_UP_M | __POLL_MODE_M), &stateFlags);
     setLinkStatus(kIONetworkLinkValid);
 
-    rtl8125_nic_reset(&linuxData);
-
-    /* Cleanup descriptor ring. */
+    rtl812xLinkDownPatch(tp);
     clearRxTxRings();
-    
-    setPhyMedium();
+
+    /* Enable link change interrupt. */
+    intrMask = intrMaskRxTx;
+    RTL_W32(tp, IMR0_8125, intrMask);
+
+    rtl812xSetPhyMedium(tp, tp->autoneg, tp->speed, tp->duplex, tp->advertising);
     
     IOLog("Link down on en%u\n", netif->getUnitNumber());
 }

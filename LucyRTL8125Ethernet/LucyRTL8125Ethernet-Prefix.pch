@@ -68,4 +68,6 @@ typedef u_int32_t ifnet_ctl_cmd_t;
 
 //#define DEBUG_INTR
 
+#include "linux/linux.h"
+
 #endif /* LucyRTL8125Ethernet_Prefix_pch */

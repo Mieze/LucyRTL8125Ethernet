@@ -112,25 +112,25 @@ static const int multicast_filter_limit = 32;
 const struct RTLChipInfo rtl_chip_info[] = {
     _R("RTL8125A",
        CFG_METHOD_2,
-       BIT_30 | EnableInnerVlan | EnableOuterVlan | (RX_DMA_BURST << RxCfgDMAShift),
+       Rx_Fetch_Number_8 | EnableInnerVlan | EnableOuterVlan | (RX_DMA_BURST << RxCfgDMAShift),
        0xff7e5880,
        Jumbo_Frame_9k),
     
     _R("RTL8125A",
        CFG_METHOD_3,
-       BIT_30 | EnableInnerVlan | EnableOuterVlan | (RX_DMA_BURST << RxCfgDMAShift),
+       Rx_Fetch_Number_8 | EnableInnerVlan | EnableOuterVlan | (RX_DMA_BURST << RxCfgDMAShift),
        0xff7e5880,
        Jumbo_Frame_9k),
     
     _R("RTL8125B",
        CFG_METHOD_4,
-       BIT_30 | EnableInnerVlan | EnableOuterVlan | (RX_DMA_BURST << RxCfgDMAShift),
+       Rx_Fetch_Number_8 | RxCfg_pause_slot_en | EnableInnerVlan | EnableOuterVlan | (RX_DMA_BURST << RxCfgDMAShift),
        0xff7e5880,
        Jumbo_Frame_9k),
     
     _R("RTL8125B",
        CFG_METHOD_5,
-       BIT_30 | EnableInnerVlan | EnableOuterVlan | (RX_DMA_BURST << RxCfgDMAShift),
+       Rx_Fetch_Number_8 | RxCfg_pause_slot_en | EnableInnerVlan | EnableOuterVlan | (RX_DMA_BURST << RxCfgDMAShift),
        0xff7e5880,
        Jumbo_Frame_9k),
     
@@ -2591,85 +2591,70 @@ rtl8125_disable_rxdvgate(struct net_device *dev)
 }
 
 static u8
-rtl8125_is_gpio_low(struct net_device *dev)
+rtl8125_is_gpio_low(struct rtl8125_private *tp)
 {
-    struct rtl8125_private *tp = netdev_priv(dev);
-    u8 gpio_low = FALSE;
-    
-    switch (tp->HwSuppCheckPhyDisableModeVer) {
-        case 3:
-            if (!(rtl8125_mac_ocp_read(tp, 0xDC04) & BIT_13))
+        u8 gpio_low = FALSE;
+
+        if (!(rtl8125_mac_ocp_read(tp, 0xDC04) & BIT_13))
                 gpio_low = TRUE;
-            break;
-    }
-    
-    if (gpio_low)
-        dprintk("gpio is low.\n");
-    
-    return gpio_low;
+/*
+        if (gpio_low)
+                dprintk("gpio is low.\n");
+*/
+        return gpio_low;
 }
 
 static u8
-rtl8125_is_phy_disable_mode_enabled(struct net_device *dev)
+rtl8125_is_phy_disable_mode_enabled(struct rtl8125_private *tp)
 {
-    struct rtl8125_private *tp = netdev_priv(dev);
-    u8 phy_disable_mode_enabled = FALSE;
-    
-    switch (tp->HwSuppCheckPhyDisableModeVer) {
-        case 3:
-            if (RTL_R8(tp, 0xF2) & BIT_5)
+        u8 phy_disable_mode_enabled = FALSE;
+
+        if (RTL_R8(tp, 0xF2) & BIT_5)
                 phy_disable_mode_enabled = TRUE;
-            break;
-    }
-    
-    if (phy_disable_mode_enabled)
-        dprintk("phy disable mode enabled.\n");
-    
-    return phy_disable_mode_enabled;
+/*
+        if (phy_disable_mode_enabled)
+                dprintk("phy disable mode enabled.\n");
+*/
+        return phy_disable_mode_enabled;
 }
 
 static u8
-rtl8125_is_in_phy_disable_mode(struct net_device *dev)
+rtl8125_is_in_phy_disable_mode(struct rtl8125_private *tp)
 {
     u8 in_phy_disable_mode = FALSE;
-    
-    if (rtl8125_is_phy_disable_mode_enabled(dev) && rtl8125_is_gpio_low(dev))
-        in_phy_disable_mode = TRUE;
-    
+
+    if (rtl8125_is_phy_disable_mode_enabled(tp) && rtl8125_is_gpio_low(tp))
+            in_phy_disable_mode = TRUE;
+/*
     if (in_phy_disable_mode)
-        dprintk("Hardware is in phy disable mode.\n");
-    
+            dprintk("Hardware is in phy disable mode.\n");
+*/
     return in_phy_disable_mode;
 }
 
 static void
-rtl8125_enable_phy_disable_mode(struct net_device *dev)
+rtl8125_enable_phy_disable_mode(struct rtl8125_private *tp)
 {
-    struct rtl8125_private *tp = netdev_priv(dev);
-    
     switch (tp->HwSuppCheckPhyDisableModeVer) {
         case 3:
             RTL_W8(tp, 0xF2, RTL_R8(tp, 0xF2) | BIT_5);
             break;
     }
-    
-    dprintk("enable phy disable mode.\n");
+
+    DebugLog("enable phy disable mode.\n");
 }
 
 static void
-rtl8125_disable_phy_disable_mode(struct net_device *dev)
+rtl8125_disable_phy_disable_mode(struct rtl8125_private *tp)
 {
-    struct rtl8125_private *tp = netdev_priv(dev);
-    
     switch (tp->HwSuppCheckPhyDisableModeVer) {
         case 3:
             RTL_W8(tp, 0xF2, RTL_R8(tp, 0xF2) & ~BIT_5);
             break;
     }
-    
     mdelay(1);
-    
-    dprintk("disable phy disable mode.\n");
+
+    DebugLog("disable phy disable mode.\n");
 }
 
 void
@@ -3017,37 +3002,40 @@ rtl8125_xmii_link_ok(struct net_device *dev)
 
 #endif /* DISABLED_CODE */
 
-void
-rtl8125_xmii_reset_enable(struct net_device *dev)
+static int
+rtl8125_wait_phy_reset_complete(struct rtl8125_private *tp)
 {
-    struct rtl8125_private *tp = netdev_priv(dev);
-    int i, val = 0;
+    int i, val;
+
+    for (i = 0; i < 2500; i++) {
+        val = rtl8125_mdio_read(tp, MII_BMCR) & BMCR_RESET;
     
-    if (rtl8125_is_in_phy_disable_mode(dev)) {
-        return;
+        if (!val)
+                return 0;
+
+        mdelay(1);
     }
-    
+    return -1;
+}
+
+void rtl8125_xmii_reset_enable(struct rtl8125_private *tp)
+{
+    int ret;
+
+    if (rtl8125_is_in_phy_disable_mode(tp))
+        return;
+
     rtl8125_mdio_write(tp, 0x1f, 0x0000);
     rtl8125_mdio_write(tp, MII_ADVERTISE, rtl8125_mdio_read(tp, MII_ADVERTISE) &
                        ~(ADVERTISE_10HALF | ADVERTISE_10FULL |
                          ADVERTISE_100HALF | ADVERTISE_100FULL));
     rtl8125_mdio_write(tp, MII_CTRL1000, rtl8125_mdio_read(tp, MII_CTRL1000) &
                        ~(ADVERTISE_1000HALF | ADVERTISE_1000FULL));
-    mdio_direct_write_phy_ocp(tp, 0xA5D4, mdio_direct_read_phy_ocp(tp, 0xA5D4) & ~(RTK_ADVERTISE_2500FULL));
+    mdio_real_direct_write_phy_ocp(tp, 0xA5D4, mdio_real_direct_read_phy_ocp(tp, 0xA5D4) &
+                                      ~(RTK_ADVERTISE_2500FULL | RTK_ADVERTISE_5000FULL));
     rtl8125_mdio_write(tp, MII_BMCR, BMCR_RESET | BMCR_ANENABLE);
-    
-    for (i = 0; i < 2500; i++) {
-        val = rtl8125_mdio_read(tp, MII_BMCR) & BMCR_RESET;
-        
-        if (!val) {
-            return;
-        }
-        
-        mdelay(1);
-    }
-    
-    if (netif_msg_link(tp))
-        printk(KERN_ERR "%s: PHY reset failed.\n", dev->name);
+
+    rtl8125_wait_phy_reset_complete(tp);
 }
 
 #if DISABLED_CODE
@@ -3762,8 +3750,7 @@ rtl8125_disable_d0_speedup(struct rtl8125_private *tp)
         RTL_W8(tp, 0xD0, RTL_R8(tp, 0xD0) & ~BIT_7);
 }
 
-void
-rtl8125_set_hw_wol(struct net_device *dev, u32 wolopts)
+void rtl8125_set_hw_wol(struct net_device *dev, u32 wolopts)
 {
     struct rtl8125_private *tp = netdev_priv(dev);
     int i,tmp;
@@ -3931,13 +3918,11 @@ rtl8125_keep_wol_link_speed(struct net_device *dev, u8 from_suspend)
 }
 
 static void
-rtl8125_powerdown_pll(struct net_device *dev, u8 from_suspend)
+rtl8125_powerdown_pll(struct rtl8125_private *tp, u8 from_suspend)
 {
-    struct rtl8125_private *tp = netdev_priv(dev);
-    
     tp->check_keep_link_speed = 0;
     if (tp->wol_enabled == WOL_ENABLED || tp->DASH || tp->EnableKCPOffload) {
-        rtl8125_set_hw_wol(dev, tp->wol_opts);
+        rtl8125_set_hw_wol(tp, tp->wol_opts);
         
         if (tp->mcfg == CFG_METHOD_2 ||
             tp->mcfg == CFG_METHOD_3 ||
@@ -5733,8 +5718,7 @@ rtl8125_hw_mac_mcu_config(struct net_device *dev)
     }
 }
 
-void
-rtl8125_hw_init(struct net_device *dev)
+void rtl8125_hw_init(struct net_device *dev)
 {
     struct rtl8125_private *tp = netdev_priv(dev);
     u32 csi_tmp;
@@ -5782,8 +5766,8 @@ rtl8125_hw_init(struct net_device *dev)
     rtl8125_disable_magic_packet(dev);
     rtl8125_disable_d0_speedup(tp);
     //rtl8125_set_pci_pme(tp, 0);
-    if (s0_magic_packet == 1)
-        rtl8125_enable_magic_packet(dev);
+
+    rtl8125_enable_magic_packet(dev);
 }
 
 void
@@ -6005,7 +5989,7 @@ rtl8125_wait_phy_mcu_patch_request_ready(struct rtl8125_private *tp)
     if (gphy_val != BIT_6 && WaitCount == 1000) bSuccess = FALSE;
     
     if (!bSuccess)
-        dprintk("rtl8125_wait_phy_mcu_patch_request_ready fail.\n");
+        DebugLog("rtl8125_wait_phy_mcu_patch_request_ready fail.\n");
     
     return bSuccess;
 }
@@ -9329,8 +9313,9 @@ rtl8125_set_hw_phy_before_init_phy_mcu(struct net_device *dev)
             
             PhyRegValue = mdio_direct_read_phy_ocp(tp, 0xBF86);
             PhyRegValue &= (BIT_1 | BIT_0);
+            
             if (PhyRegValue != 0)
-                dprintk("PHY watch dog not clear, value = 0x%x \n", PhyRegValue);
+                DebugLog("PHY watch dog not clear, value = 0x%x \n", PhyRegValue);
             
             mdio_direct_write_phy_ocp(tp, 0xBD86, 0x1010);
             mdio_direct_write_phy_ocp(tp, 0xBD88, 0x1010);

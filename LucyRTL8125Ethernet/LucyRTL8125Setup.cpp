@@ -23,6 +23,46 @@
 static const char *onName = "enabled";
 static const char *offName = "disabled";
 
+#define ADV_ALL (ADVERTISED_10baseT_Half | ADVERTISED_10baseT_Full | ADVERTISED_100baseT_Half | ADVERTISED_100baseT_Full | ADVERTISED_1000baseT_Full)
+
+struct rtlMediumTable mediumArray[MIDX_COUNT] = {
+    { .type = kIOMediumEthernetAuto, .spd = 0, .idx = MIDX_AUTO, .speed = 0, .duplex = DUPLEX_FULL, .fc = rtl8125_fc_none, .eee = kEEETypeNo, .adv = ADV_ALL },
+
+    /* 10Base-T */
+    { .type = (kIOMediumEthernet10BaseT | IFM_HDX), .spd = kSpeed10MBit, .idx = MIDX_10HD, .speed = SPEED_10, .duplex = DUPLEX_HALF, .fc = rtl8125_fc_none, .eee = kEEETypeNo, .adv = ADVERTISED_10baseT_Half },
+    { .type = (kIOMediumEthernet10BaseT | IFM_FDX), .spd = kSpeed10MBit, .idx = MIDX_10FD, .speed = SPEED_10, .duplex = DUPLEX_FULL, .fc = rtl8125_fc_none, .eee = kEEETypeNo, .adv = ADVERTISED_10baseT_Full },
+
+    /* 100Base-T */
+    { .type = (kIOMediumEthernet100BaseTX | IFM_HDX), .spd = kSpeed100MBit, .idx = MIDX_100HD, .speed = SPEED_100, .duplex = DUPLEX_HALF, .fc = rtl8125_fc_none, .eee = kEEETypeNo, .adv = ADVERTISED_100baseT_Half },
+    { .type = (kIOMediumEthernet100BaseTX | IFM_FDX), .spd = kSpeed100MBit, .idx = MIDX_100FD, .speed = SPEED_100, .duplex = DUPLEX_FULL, .fc = rtl8125_fc_none, .eee = kEEETypeNo, .adv = ADVERTISED_100baseT_Full },
+    { .type = (kIOMediumEthernet100BaseTX | IFM_FDX | IFM_FLOW), .spd = kSpeed100MBit, .idx = MIDX_100FDFC, .speed = SPEED_100, .duplex = DUPLEX_FULL, .fc = rtl8125_fc_full, .eee = kEEETypeNo, .adv = ADVERTISED_100baseT_Full },
+    { .type = (kIOMediumEthernet100BaseTX | IFM_FDX | IFM_EEE), .spd = kSpeed100MBit, .idx = MIDX_100FD_EEE, .speed = SPEED_100, .duplex = DUPLEX_FULL, .fc = rtl8125_fc_none, .eee = kEEETypeYes, .adv = ADVERTISED_100baseT_Full },
+    { .type = (kIOMediumEthernet100BaseTX | IFM_FDX | IFM_FLOW | IFM_EEE), .spd = kSpeed100MBit, .idx = MIDX_100FDFC_EEE, .speed = SPEED_100, .duplex = DUPLEX_FULL, .fc = rtl8125_fc_full, .eee = kEEETypeYes, .adv = ADVERTISED_100baseT_Full },
+
+    /* 1000Base-T */
+    { .type = (kIOMediumEthernet1000BaseT | IFM_FDX), .spd = kSpeed1000MBit, .idx = MIDX_1000FD, .speed = SPEED_1000, .duplex = DUPLEX_FULL, .fc = rtl8125_fc_none, .eee = kEEETypeNo, .adv = ADVERTISED_1000baseT_Full },
+    { .type = (kIOMediumEthernet1000BaseT | IFM_FDX | IFM_FLOW), .spd = kSpeed1000MBit, .idx = MIDX_1000FDFC, .speed = SPEED_1000, .duplex = DUPLEX_FULL, .fc = rtl8125_fc_full, .eee = kEEETypeNo, .adv = ADVERTISED_1000baseT_Full },
+    { .type = (kIOMediumEthernet1000BaseT | IFM_FDX | IFM_EEE), .spd = kSpeed1000MBit, .idx = MIDX_1000FD_EEE, .speed = SPEED_1000, .duplex = DUPLEX_FULL, .fc = rtl8125_fc_none, .eee = kEEETypeYes, .adv = ADVERTISED_1000baseT_Full },
+    { .type = (kIOMediumEthernet1000BaseT | IFM_FDX | IFM_FLOW | IFM_EEE), .spd = kSpeed1000MBit, .idx = MIDX_1000FDFC_EEE, .speed = SPEED_1000, .duplex = DUPLEX_FULL, .fc = rtl8125_fc_full, .eee = kEEETypeYes, .adv = ADVERTISED_1000baseT_Full },
+
+    /* 2500Base-T */
+    { .type = (kIOMediumEthernet2500BaseT | IFM_FDX), .spd = kSpeed2500MBit, .idx = MIDX_2500FD, .speed = SPEED_2500, .duplex = DUPLEX_FULL, .fc = rtl8125_fc_none, .eee = kEEETypeNo, .adv = ADVERTISED_2500baseX_Full },
+    { .type = (kIOMediumEthernet2500BaseT | IFM_FDX | IFM_FLOW), .spd = kSpeed2500MBit, .idx = MIDX_2500FDFC, .speed = SPEED_2500, .duplex = DUPLEX_FULL, .fc = rtl8125_fc_full, .eee = kEEETypeNo, .adv = ADVERTISED_2500baseX_Full },
+    { .type = (kIOMediumEthernet2500BaseT | IFM_FDX | IFM_EEE), .spd = kSpeed2500MBit, .idx = MIDX_2500FD_EEE, .speed = SPEED_2500, .duplex = DUPLEX_FULL, .fc = rtl8125_fc_none, .eee = kEEETypeYes, .adv = ADVERTISED_2500baseX_Full },
+    { .type = (kIOMediumEthernet2500BaseT | IFM_FDX | IFM_FLOW | IFM_EEE), .spd = kSpeed2500MBit, .idx = MIDX_2500FDFC_EEE, .speed = SPEED_2500, .duplex = DUPLEX_FULL, .fc = rtl8125_fc_full, .eee = kEEETypeYes, .adv = ADVERTISED_2500baseX_Full },
+    
+    /* 5000Base-T */
+    { .type = (kIOMediumEthernet5000BaseT | IFM_FDX), .spd = kSpeed5000MBit, .idx = MIDX_5000FD, .speed = SPEED_5000, .duplex = DUPLEX_FULL, .fc = rtl8125_fc_none, .eee = kEEETypeNo, .adv = RTK_ADVERTISED_5000baseX_Full },
+    { .type = (kIOMediumEthernet5000BaseT | IFM_FDX | IFM_FLOW), .spd = kSpeed5000MBit, .idx = MIDX_5000FDFC, .speed = SPEED_5000, .duplex = DUPLEX_FULL, .fc = rtl8125_fc_full, .eee = kEEETypeNo, .adv = RTK_ADVERTISED_5000baseX_Full },
+    { .type = (kIOMediumEthernet5000BaseT | IFM_FDX | IFM_EEE), .spd = kSpeed5000MBit, .idx = MIDX_5000FD_EEE, .speed = SPEED_5000, .duplex = DUPLEX_FULL, .fc = rtl8125_fc_none, .eee = kEEETypeYes, .adv = RTK_ADVERTISED_5000baseX_Full },
+    { .type = (kIOMediumEthernet5000BaseT | IFM_FDX | IFM_FLOW | IFM_EEE), .spd = kSpeed5000MBit, .idx = MIDX_5000FDFC_EEE, .speed = SPEED_5000, .duplex = DUPLEX_FULL, .fc = rtl8125_fc_full, .eee = kEEETypeYes, .adv = RTK_ADVERTISED_5000baseX_Full },
+    
+    /* 10GBase-T */
+    { .type = (kIOMediumEthernet10GBaseT | IFM_FDX), .spd = kSpeed10000MBit, .idx = MIDX_10000FD, .speed = SPEED_10000, .duplex = DUPLEX_FULL, .fc = rtl8125_fc_none, .eee = kEEETypeNo, .adv = 0 },
+    { .type = (kIOMediumEthernet10GBaseT | IFM_FDX | IFM_FLOW), .spd = kSpeed10000MBit, .idx = MIDX_10000FDFC, .speed = SPEED_10000, .duplex = DUPLEX_FULL, .fc = rtl8125_fc_full, .eee = kEEETypeNo, .adv = 0 },
+    { .type = (kIOMediumEthernet10GBaseT | IFM_FDX | IFM_EEE), .spd = kSpeed10000MBit, .idx = MIDX_10000FD_EEE, .speed = SPEED_10000, .duplex = DUPLEX_FULL, .fc = rtl8125_fc_none, .eee = kEEETypeYes, .adv = 0 },
+    { .type = (kIOMediumEthernet10GBaseT | IFM_FDX | IFM_FLOW | IFM_EEE), .spd = kSpeed10000MBit, .idx = MIDX_10000FDFC_EEE, .speed = SPEED_10000, .duplex = DUPLEX_FULL, .fc = rtl8125_fc_full, .eee = kEEETypeYes, .adv = 0 },
+};
 
 #pragma mark --- data structure initialization methods ---
 
@@ -30,14 +70,13 @@ void LucyRTL8125::getParams()
 {
     OSDictionary *params;
     OSIterator *iterator;
-    OSNumber *pollInt;
-    OSBoolean *enableEEE;
-    OSBoolean *tso4;
-    OSBoolean *tso6;
-    OSBoolean *noASPM;
     OSString *versionString;
     OSString *fbAddr;
-    UInt32 usInterval;
+    OSBoolean *tsoV4;
+    OSBoolean *tsoV6;
+    OSBoolean *aspm;
+    OSNumber *tv;
+    UInt32 interval;
     
     if (version_major >= Tahoe) {
         params = serviceMatching("AppleVTD");
@@ -57,50 +96,69 @@ void LucyRTL8125::getParams()
             params->release();
         }
     }
-
     versionString = OSDynamicCast(OSString, getProperty(kDriverVersionName));
 
     params = OSDynamicCast(OSDictionary, getProperty(kParamName));
     
     if (params) {
-        noASPM = OSDynamicCast(OSBoolean, params->getObject(kDisableASPMName));
-        linuxData.configASPM = (noASPM) ? !(noASPM->getValue()) : 0;
-        
-        DebugLog("PCIe ASPM support %s.\n", linuxData.configASPM ? onName : offName);
-        
-        enableEEE = OSDynamicCast(OSBoolean, params->getObject(kEnableEeeName));
-        
-        if (enableEEE)
-            linuxData.eee_enabled = (enableEEE->getValue()) ? 1 : 0;
-        else
-            linuxData.eee_enabled = 0;
-        
-        IOLog("EEE support %s.\n", linuxData.eee_enabled ? onName : offName);
-        
-        tso4 = OSDynamicCast(OSBoolean, params->getObject(kEnableTSO4Name));
-        enableTSO4 = (tso4) ? tso4->getValue() : false;
+        tsoV4 = OSDynamicCast(OSBoolean, params->getObject(kEnableTSO4Name));
+        enableTSO4 = (tsoV4 != NULL) ? tsoV4->getValue() : false;
         
         IOLog("TCP/IPv4 segmentation offload %s.\n", enableTSO4 ? onName : offName);
         
-        tso6 = OSDynamicCast(OSBoolean, params->getObject(kEnableTSO6Name));
-        enableTSO6 = (tso6) ? tso6->getValue() : false;
+        tsoV6 = OSDynamicCast(OSBoolean, params->getObject(kEnableTSO6Name));
+        enableTSO6 = (tsoV6 != NULL) ? tsoV6->getValue() : false;
         
         IOLog("TCP/IPv6 segmentation offload %s.\n", enableTSO6 ? onName : offName);
-                
-        pollInt = OSDynamicCast(OSNumber, params->getObject(kPollInt2500Name));
+        
+        aspm = OSDynamicCast(OSBoolean, params->getObject(kEnableASPM));
+        linuxData.aspm = (aspm != NULL) ? aspm->getValue() : false;
+        
+        IOLog("Active State Power Management %s.\n", enableASPM ? onName : offName);
 
-        if (pollInt) {
-            usInterval = pollInt->unsigned32BitValue();
+        tv = OSDynamicCast(OSNumber, params->getObject(kPollTime10GName));
+
+        if (tv != NULL) {
+            interval = tv->unsigned32BitValue();
             
-            if (usInterval > 150)
-                pollInterval2500 = 150000;
-            else if (usInterval < 75)
-                pollInterval2500 = 75000;
+            if (interval > 120)
+                pollTime10G = 120000;
+            else if (interval < 25)
+                pollTime10G = 25000;
             else
-                pollInterval2500 = usInterval * 1000;
+                pollTime10G = interval * 1000;
         } else {
-            pollInterval2500 = 110000;
+            pollTime10G = 100000;
         }
+        tv = OSDynamicCast(OSNumber, params->getObject(kPollTime5GName));
+
+        if (tv != NULL) {
+            interval = tv->unsigned32BitValue();
+            
+            if (interval > 200)
+                pollTime5G = 200000;
+            else if (interval < 100)
+                pollTime5G = 100000;
+            else
+                pollTime5G = interval * 1000;
+        } else {
+            pollTime5G = 120000;
+        }
+        tv = OSDynamicCast(OSNumber, params->getObject(kPollTime2GName));
+
+        if (tv != NULL) {
+            interval = tv->unsigned32BitValue();
+            
+            if (interval > 200)
+                pollTime2G = 200000;
+            else if (interval < 100)
+                pollTime2G = 100000;
+            else
+                pollTime2G = interval * 1000;
+        } else {
+            pollTime2G = 120000;
+        }
+        
         fbAddr = OSDynamicCast(OSString, params->getObject(kFallbackName));
         
         if (fbAddr) {
@@ -117,70 +175,49 @@ void LucyRTL8125::getParams()
             }
         }
     } else {
-        enableTSO4 = true;
-        enableTSO6 = true;
-        pollInterval2500 = 0;
+        /* Use default values in case of missing config data. */
+        enableTSO4 = false;
+        enableTSO6 = false;
+        enableASPM = false;
+        pollTime10G = 100000;
+        pollTime5G = 120000;
+        pollTime2G = 160000;
     }
     if (versionString)
-        IOLog("LucyRTL8125Ethernet version %s starting. Please don't support tonymacx86.com!\n", versionString->getCStringNoCopy());
-    else
-        IOLog("LucyRTL8125Ethernet starting. Please don't support tonymacx86.com!\n");
+        IOLog("Version %s\n", versionString->getCStringNoCopy());
 }
-
-static IOMediumType mediumTypeArray[MEDIUM_INDEX_COUNT] = {
-    kIOMediumEthernetAuto,
-    (kIOMediumEthernet10BaseT | kIOMediumOptionHalfDuplex),
-    (kIOMediumEthernet10BaseT | kIOMediumOptionFullDuplex),
-    (kIOMediumEthernet100BaseTX | kIOMediumOptionHalfDuplex),
-    (kIOMediumEthernet100BaseTX | kIOMediumOptionFullDuplex),
-    (kIOMediumEthernet100BaseTX | kIOMediumOptionFullDuplex | kIOMediumOptionFlowControl),
-    (kIOMediumEthernet1000BaseT | kIOMediumOptionFullDuplex),
-    (kIOMediumEthernet1000BaseT | kIOMediumOptionFullDuplex | kIOMediumOptionFlowControl),
-    (kIOMediumEthernet100BaseTX | kIOMediumOptionFullDuplex | kIOMediumOptionEEE),
-    (kIOMediumEthernet100BaseTX | kIOMediumOptionFullDuplex | kIOMediumOptionFlowControl | kIOMediumOptionEEE),
-    (kIOMediumEthernet1000BaseT | kIOMediumOptionFullDuplex | kIOMediumOptionEEE),
-    (kIOMediumEthernet1000BaseT | kIOMediumOptionFullDuplex | kIOMediumOptionFlowControl | kIOMediumOptionEEE),
-    (kIOMediumEthernet2500BaseT | kIOMediumOptionFullDuplex),
-    (kIOMediumEthernet2500BaseT | kIOMediumOptionFullDuplex | kIOMediumOptionFlowControl)
-};
-
-static UInt64 mediumSpeedArray[MEDIUM_INDEX_COUNT] = {
-    0,
-    10 * MBit,
-    10 * MBit,
-    100 * MBit,
-    100 * MBit,
-    100 * MBit,
-    1000 * MBit,
-    1000 * MBit,
-    100 * MBit,
-    100 * MBit,
-    1000 * MBit,
-    1000 * MBit,
-    2500 * MBit,
-    2500 * MBit,
-};
 
 bool LucyRTL8125::setupMediumDict()
 {
+    struct rtl8125_private *tp = &linuxData;
     IONetworkMedium *medium;
+    UInt32 limit;
     UInt32 i;
     bool result = false;
 
-    mediumDict = OSDictionary::withCapacity(MEDIUM_INDEX_COUNT + 1);
+    if (HW_SUPP_PHY_LINK_SPEED_5000M(tp)) {
+        mediumArray[MIDX_AUTO].adv |= (ADVERTISED_2500baseX_Full | RTK_ADVERTISED_5000baseX_Full);
+        limit = MIDX_10000FD;
+    } else if (HW_SUPP_PHY_LINK_SPEED_2500M(tp)) {
+        mediumArray[MIDX_AUTO].adv |= ADVERTISED_2500baseX_Full;
+        limit = (tp->mcfg < CFG_METHOD_4) ? MIDX_2500FD_EEE : MIDX_5000FD;
+    } else {
+        limit = MIDX_2500FD;
+    }
+    mediumDict = OSDictionary::withCapacity(limit + 1);
 
     if (mediumDict) {
-        for (i = MEDIUM_INDEX_AUTO; i < MEDIUM_INDEX_COUNT; i++) {
-            medium = IONetworkMedium::medium(mediumTypeArray[i], mediumSpeedArray[i], 0, i);
+        for (i = MIDX_AUTO; i < limit; i++) {
+            medium = IONetworkMedium::medium(mediumArray[i].type, mediumArray[i].spd, 0, i);
             
             if (!medium)
-                goto error1;
+                goto error_med;
 
             result = IONetworkMedium::addMedium(mediumDict, medium);
             medium->release();
 
             if (!result)
-                goto error1;
+                goto error_med;
 
             mediumTable[i] = medium;
         }
@@ -188,19 +225,28 @@ bool LucyRTL8125::setupMediumDict()
     result = publishMediumDictionary(mediumDict);
     
     if (!result)
-        goto error1;
+        goto error_med;
 
 done:
     return result;
     
-error1:
+error_med:
     IOLog("Error creating medium dictionary.\n");
     mediumDict->release();
     
-    for (i = MEDIUM_INDEX_AUTO; i < MEDIUM_INDEX_COUNT; i++)
+    for (i = MIDX_AUTO; i < MIDX_COUNT; i++)
         mediumTable[i] = NULL;
 
     goto done;
+}
+
+void LucyRTL8125::rtl812xMedium2Adv(struct rtl8125_private *tp, UInt32 index)
+{
+    tp->speed = mediumArray[index].speed;
+    tp->duplex = mediumArray[index].duplex;
+    tp->fcpause = mediumArray[index].fc;
+    tp->advertising = mediumArray[index].adv;
+    tp->eee.eee_enabled = mediumArray[index].eee;
 }
 
 bool LucyRTL8125::initEventSources(IOService *provider)
