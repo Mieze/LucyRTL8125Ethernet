@@ -2,6 +2,8 @@
 
 A macOS driver for Realtek RTL8125 2.5GBit Ethernet Controllers
 
+LucyRTL8125Ethernet is EOL. It is recommeded to switch to RTL812xLucy, which is a superset of LucyRTL8125Ethernet.
+
 **Key Features of LucyRTL8125Ethernet**
 
 * Supports all versions of Realtek's RTL8125 2.5GBit Ethernet Controllers found on recent boards.</br>
